@@ -6,6 +6,7 @@ import { useFilterValues } from '../lib/hooks'
 import type { CustomerSummary } from '../lib/types'
 import Modal from '../components/Modal'
 import CustomerForm from '../components/CustomerForm'
+import SelectField from '../components/SelectField'
 
 export default function Customers() {
   const { nationalities, cities } = useFilterValues()
@@ -68,30 +69,28 @@ export default function Customers() {
 
           <div className="field">
             <label htmlFor="filter-nationality">الجنسية</label>
-            <select
+            <SelectField
               id="filter-nationality"
               value={nationality}
-              onChange={(e) => setNationality(e.target.value)}
-            >
-              <option value="">كل الجنسيات</option>
-              {nationalities.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
+              onChange={setNationality}
+              options={[
+                { value: '', label: 'كل الجنسيات' },
+                ...nationalities.map((item) => ({ value: item, label: item })),
+              ]}
+            />
           </div>
 
           <div className="field">
             <label htmlFor="filter-city">المدينة</label>
-            <select id="filter-city" value={city} onChange={(e) => setCity(e.target.value)}>
-              <option value="">كل المدن</option>
-              {cities.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
+            <SelectField
+              id="filter-city"
+              value={city}
+              onChange={setCity}
+              options={[
+                { value: '', label: 'كل المدن' },
+                ...cities.map((item) => ({ value: item, label: item })),
+              ]}
+            />
           </div>
 
           <div className="field">

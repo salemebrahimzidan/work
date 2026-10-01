@@ -4,6 +4,7 @@ import { count, errorMessage, money } from '../lib/format'
 import { useCustomerOptions, useFilterValues } from '../lib/hooks'
 import type { DashboardStats, ProfitReport, TransactionDetail } from '../lib/types'
 import TransactionsTable from '../components/TransactionsTable'
+import SelectField from '../components/SelectField'
 
 const RIYADH_TZ = 'Asia/Riyadh'
 
@@ -125,46 +126,41 @@ export default function Profits() {
 
           <div className="field">
             <label htmlFor="p-customer">العميل</label>
-            <select
+            <SelectField
               id="p-customer"
               value={customerId}
-              onChange={(e) => setCustomerId(e.target.value)}
-            >
-              <option value="">كل العملاء</option>
-              {customers.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.full_name}
-                </option>
-              ))}
-            </select>
+              onChange={setCustomerId}
+              options={[
+                { value: '', label: 'كل العملاء' },
+                ...customers.map((item) => ({ value: item.id, label: item.full_name })),
+              ]}
+            />
           </div>
 
           <div className="field">
             <label htmlFor="p-nationality">الجنسية</label>
-            <select
+            <SelectField
               id="p-nationality"
               value={nationality}
-              onChange={(e) => setNationality(e.target.value)}
-            >
-              <option value="">كل الجنسيات</option>
-              {nationalities.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
+              onChange={setNationality}
+              options={[
+                { value: '', label: 'كل الجنسيات' },
+                ...nationalities.map((item) => ({ value: item, label: item })),
+              ]}
+            />
           </div>
 
           <div className="field">
             <label htmlFor="p-city">المدينة</label>
-            <select id="p-city" value={city} onChange={(e) => setCity(e.target.value)}>
-              <option value="">كل المدن</option>
-              {cities.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
+            <SelectField
+              id="p-city"
+              value={city}
+              onChange={setCity}
+              options={[
+                { value: '', label: 'كل المدن' },
+                ...cities.map((item) => ({ value: item, label: item })),
+              ]}
+            />
           </div>
         </div>
 
