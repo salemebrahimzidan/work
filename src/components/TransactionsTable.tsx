@@ -32,7 +32,7 @@ export default function TransactionsTable({
               <th>رقم المعاملة</th>
               {showCustomer && <th>العميل</th>}
               <th>المعاملة</th>
-              <th>الربح</th>
+              {isAdmin && <th>الربح</th>}
               <th>الحالة</th>
               <th>ملاحظة</th>
               <th>التاريخ</th>
@@ -51,7 +51,7 @@ export default function TransactionsTable({
                   </td>
                 )}
                 <td>{row.service_name}</td>
-                <td className="num strong">{money(row.original_profit)}</td>
+                {isAdmin && <td className="num strong">{money(row.original_profit)}</td>}
                 <td>
                   <span className="badge badge-locked">مقفل</span>
                 </td>
