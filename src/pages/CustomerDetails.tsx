@@ -138,7 +138,7 @@ export default function CustomerDetails() {
       {error && <div className="alert alert-error">{error}</div>}
 
       <div className="card">
-        <div className="detail-list">
+        <div className="profile-grid">
           <Item label="الاسم" value={customer.full_name} />
           <Item label="الجوال" value={customer.mobile} ltr />
           <Item label="الجنسية" value={customer.nationality || '—'} />
@@ -149,9 +149,9 @@ export default function CustomerDetails() {
           <Item label="عدد المعاملات" value={count(rows.length)} />
         </div>
         {customer.notes && (
-          <div style={{ marginTop: 14 }}>
-            <div className="stat-label">ملاحظات</div>
-            <div>{customer.notes}</div>
+          <div className="profile-notes">
+            <div className="profile-label">ملاحظات</div>
+            <div className="profile-value">{customer.notes}</div>
           </div>
         )}
       </div>
@@ -231,10 +231,11 @@ export default function CustomerDetails() {
 }
 
 function Item({ label, value, ltr }: { label: string; value: string; ltr?: boolean }) {
+  const empty = value === '—'
   return (
-    <div className="detail-item">
-      <div className="stat-label">{label}</div>
-      <div className={ltr ? 'value num' : 'value'} dir={ltr ? 'ltr' : undefined}>
+    <div className={empty ? 'profile-field is-empty' : 'profile-field'}>
+      <div className="profile-label">{label}</div>
+      <div className={ltr ? 'profile-value num' : 'profile-value'} dir={ltr ? 'ltr' : undefined}>
         {value}
       </div>
     </div>
