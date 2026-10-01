@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { count, errorMessage, money } from '../lib/format'
-import { useFilterValues } from '../lib/hooks'
 import { useAuth } from '../auth/AuthProvider'
+import { useFilterValues } from '../lib/hooks'
 import type { TransactionDetail } from '../lib/types'
 import Modal from '../components/Modal'
 import TransactionForm from '../components/TransactionForm'
-import CorrectionForm from '../components/CorrectionForm'
 import TransactionsTable from '../components/TransactionsTable'
 
 export default function Transactions() {
@@ -19,7 +18,6 @@ export default function Transactions() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [addOpen, setAddOpen] = useState(false)
-  const [correcting, setCorrecting] = useState<TransactionDetail | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -50,7 +48,7 @@ export default function Transactions() {
     return () => clearTimeout(timer)
   }, [load])
 
-  const total = rows.reduce((sum, row) => sum + Number(row.effective_profit), 0)
+  const total = rows.reduce((sum, row) => sum + Number(row.original_profit), 0)
 
   return (
     <>
@@ -126,17 +124,12 @@ export default function Transactions() {
       {error && <div className="alert alert-error" style={{ marginTop: 16 }}>{error}</div>}
 
       <div style={{ marginTop: 16 }}>
-        <TransactionsTable
-          rows={rows}
-          loading={loading}
-          canCorrect={isAdmin}
-          onCorrect={setCorrecting}
-        />
+        <TransactionsTable rows={rows} loading={loading} onChanged={() => void load()} />
       </div>
 
       {!isAdmin && (
         <p className="note-line" style={{ marginTop: 10 }}>
-          الأرباح المحفوظة مقفلة ولا يمكن تعديلها أو حذفها. تصحيح الأرباح متاح للمشرف فقط.
+          الأرباح المحفوظة مقفلة ولا يمكن تعديلها أو حذفها.
         </p>
       )}
 
@@ -148,23 +141,6 @@ export default function Transactions() {
             void load()
           }}
         />
-      </Modal>
-
-      <Modal
-        title="تصحيح الربح (مشرف)"
-        open={Boolean(correcting)}
-        onClose={() => setCorrecting(null)}
-      >
-        {correcting && (
-          <CorrectionForm
-            transaction={correcting}
-            onCancel={() => setCorrecting(null)}
-            onSaved={() => {
-              setCorrecting(null)
-              void load()
-            }}
-          />
-        )}
       </Modal>
     </>
   )

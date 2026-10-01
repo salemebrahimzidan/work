@@ -2,24 +2,20 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { count, errorMessage, formatDate, money } from '../lib/format'
-import { useAuth } from '../auth/AuthProvider'
 import type { Customer, TransactionDetail } from '../lib/types'
 import Modal from '../components/Modal'
 import CustomerForm from '../components/CustomerForm'
 import TransactionForm from '../components/TransactionForm'
-import CorrectionForm from '../components/CorrectionForm'
 import TransactionsTable from '../components/TransactionsTable'
 
 export default function CustomerDetails() {
   const { id = '' } = useParams()
-  const { isAdmin } = useAuth()
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [rows, setRows] = useState<TransactionDetail[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [editOpen, setEditOpen] = useState(false)
   const [txOpen, setTxOpen] = useState(false)
-  const [correcting, setCorrecting] = useState<TransactionDetail | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -46,7 +42,7 @@ export default function CustomerDetails() {
     void load()
   }, [load])
 
-  const total = rows.reduce((sum, row) => sum + Number(row.effective_profit), 0)
+  const total = rows.reduce((sum, row) => sum + Number(row.original_profit), 0)
 
   if (loading && !customer) {
     return <p className="muted">جارٍ التحميل…</p>
@@ -89,8 +85,8 @@ export default function CustomerDetails() {
         <div className="detail-list">
           <Item label="الاسم" value={customer.full_name} />
           <Item label="الجوال" value={customer.mobile} ltr />
-          <Item label="الجنسية" value={customer.nationality} />
-          <Item label="المدينة" value={customer.city} />
+          <Item label="الجنسية" value={customer.nationality || '—'} />
+          <Item label="المدينة" value={customer.city || '—'} />
           <Item label="الحي / المنطقة" value={customer.district || '—'} />
           <Item label="رقم الهوية / الإقامة" value={customer.national_id || '—'} ltr />
           <Item label="تاريخ الإضافة" value={formatDate(customer.created_at)} />
@@ -121,8 +117,7 @@ export default function CustomerDetails() {
         rows={rows}
         loading={loading}
         showCustomer={false}
-        canCorrect={isAdmin}
-        onCorrect={setCorrecting}
+        onChanged={() => void load()}
       />
 
       <Modal title="تعديل بيانات العميل" open={editOpen} onClose={() => setEditOpen(false)}>
@@ -145,23 +140,6 @@ export default function CustomerDetails() {
             void load()
           }}
         />
-      </Modal>
-
-      <Modal
-        title="تصحيح الربح (مشرف)"
-        open={Boolean(correcting)}
-        onClose={() => setCorrecting(null)}
-      >
-        {correcting && (
-          <CorrectionForm
-            transaction={correcting}
-            onCancel={() => setCorrecting(null)}
-            onSaved={() => {
-              setCorrecting(null)
-              void load()
-            }}
-          />
-        )}
       </Modal>
     </>
   )

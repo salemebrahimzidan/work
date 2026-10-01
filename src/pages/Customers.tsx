@@ -135,8 +135,8 @@ export default function Customers() {
                 <td className="num" dir="ltr">
                   {row.mobile}
                 </td>
-                <td>{row.nationality}</td>
-                <td>{row.city}</td>
+                <td>{row.nationality || '—'}</td>
+                <td>{row.city || '—'}</td>
                 <td className="num">{count(row.transactions_count)}</td>
                 <td className="num strong">{money(row.total_profit)}</td>
                 <td className="num muted">{formatDate(row.created_at)}</td>

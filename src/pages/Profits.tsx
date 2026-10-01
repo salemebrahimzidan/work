@@ -223,7 +223,7 @@ export default function Profits() {
       <h2 className="card-title" style={{ marginTop: 24 }}>
         تفاصيل المعاملات
       </h2>
-      <TransactionsTable rows={rows} loading={loading} />
+      <TransactionsTable rows={rows} loading={loading} onChanged={() => void load()} />
     </>
   )
 }

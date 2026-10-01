@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import Layout from './components/Layout'
@@ -7,6 +8,17 @@ import Customers from './pages/Customers'
 import CustomerDetails from './pages/CustomerDetails'
 import Transactions from './pages/Transactions'
 import Profits from './pages/Profits'
+
+function AdminOnly({ children }: { children: ReactNode }) {
+  const { isAdmin } = useAuth()
+  if (!isAdmin) return <Navigate to="/customers" replace />
+  return children
+}
+
+function DefaultRedirect() {
+  const { isAdmin } = useAuth()
+  return <Navigate to={isAdmin ? '/' : '/customers'} replace />
+}
 
 function AuthenticatedApp() {
   const { session, loading, profileLoading, isMember, signOut } = useAuth()
@@ -43,12 +55,26 @@ function AuthenticatedApp() {
     <BrowserRouter>
       <Routes>
         <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
+          <Route
+            path="/"
+            element={
+              <AdminOnly>
+                <Dashboard />
+              </AdminOnly>
+            }
+          />
           <Route path="/customers" element={<Customers />} />
           <Route path="/customers/:id" element={<CustomerDetails />} />
           <Route path="/transactions" element={<Transactions />} />
-          <Route path="/profits" element={<Profits />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route
+            path="/profits"
+            element={
+              <AdminOnly>
+                <Profits />
+              </AdminOnly>
+            }
+          />
+          <Route path="*" element={<DefaultRedirect />} />
         </Route>
       </Routes>
     </BrowserRouter>
