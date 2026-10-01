@@ -12,8 +12,8 @@ export interface Customer {
   full_name: string
   mobile: string
   national_id: string | null
-  nationality: string
-  city: string
+  nationality: string | null
+  city: string | null
   district: string | null
   notes: string | null
   created_at: string
@@ -24,8 +24,8 @@ export interface CustomerSummary {
   id: string
   full_name: string
   mobile: string
-  nationality: string
-  city: string
+  nationality: string | null
+  city: string | null
   district: string | null
   created_at: string
   transactions_count: number
@@ -37,26 +37,11 @@ export interface TransactionDetail {
   customer_id: string
   customer_name: string
   customer_mobile: string
-  nationality: string
-  city: string
+  nationality: string | null
+  city: string | null
   service_name: string
   original_profit: string
-  effective_profit: string
-  corrected_profit: string | null
-  correction_reason: string | null
-  corrected_at: string | null
-  is_corrected: boolean
   note: string | null
-  created_at: string
-}
-
-export interface ProfitCorrection {
-  id: string
-  transaction_id: string
-  previous_profit: string
-  corrected_profit: string
-  reason: string
-  admin_id: string
   created_at: string
 }
 
@@ -65,6 +50,7 @@ export interface DashboardStats {
   customers_today: number
   total_transactions: number
   transactions_today: number
+  transactions_month: number
   total_profit: string
   profit_today: string
   profit_month: string

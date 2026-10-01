@@ -42,6 +42,7 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
     }
 
     setBusy(true)
+    // Always INSERT a new row. The same service name must never update a previous transaction.
     const { error: saveError } = await supabase.from('transactions').insert({
       customer_id: customerId,
       service_name: serviceName.trim(),
@@ -63,8 +64,7 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
       {error && <div className="alert alert-error">{error}</div>}
 
       <div className="alert alert-info">
-        تنبيه: بعد الحفظ يصبح مبلغ الربح مُقفلاً ولا يمكن تعديله أو حذفه. التصحيح متاح للمشرف فقط مع
-        ذكر السبب.
+        تنبيه: بعد الحفظ يصبح مبلغ الربح مُقفلاً ولا يمكن تعديله أو حذفه.
       </div>
 
       <div className="form-grid">
