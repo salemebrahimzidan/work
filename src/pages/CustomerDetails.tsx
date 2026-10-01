@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '../auth/AuthProvider'
 import { supabase } from '../lib/supabase'
 import { count, errorMessage, formatDate, money } from '../lib/format'
 import type { Customer, TransactionDetail } from '../lib/types'
@@ -10,12 +11,17 @@ import TransactionsTable from '../components/TransactionsTable'
 
 export default function CustomerDetails() {
   const { id = '' } = useParams()
+  const navigate = useNavigate()
+  const { isAdmin } = useAuth()
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [rows, setRows] = useState<TransactionDetail[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [editOpen, setEditOpen] = useState(false)
   const [txOpen, setTxOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -43,6 +49,44 @@ export default function CustomerDetails() {
   }, [load])
 
   const total = rows.reduce((sum, row) => sum + Number(row.original_profit), 0)
+
+  async function confirmDelete() {
+    if (!customer) return
+    setDeleteError('')
+    setDeleting(true)
+
+    const { data: transactions, error: listError } = await supabase
+      .from('transactions')
+      .select('id')
+      .eq('customer_id', customer.id)
+
+    if (listError) {
+      setDeleting(false)
+      setDeleteError(errorMessage(listError))
+      return
+    }
+
+    for (const transaction of transactions ?? []) {
+      const { error: txError } = await supabase.rpc('admin_delete_transaction', {
+        p_transaction_id: transaction.id,
+      })
+      if (txError) {
+        setDeleting(false)
+        setDeleteError(errorMessage(txError))
+        void load()
+        return
+      }
+    }
+
+    const { error: customerError } = await supabase.from('customers').delete().eq('id', customer.id)
+    setDeleting(false)
+    if (customerError) {
+      setDeleteError(errorMessage(customerError))
+      void load()
+      return
+    }
+    navigate('/customers')
+  }
 
   if (loading && !customer) {
     return <p className="muted">جارٍ التحميل…</p>
@@ -76,6 +120,18 @@ export default function CustomerDetails() {
           <button type="button" className="btn btn-primary" onClick={() => setTxOpen(true)}>
             إضافة معاملة
           </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={() => {
+                setDeleteError('')
+                setDeleteOpen(true)
+              }}
+            >
+              حذف العميل
+            </button>
+          )}
         </div>
       </div>
 
@@ -100,12 +156,14 @@ export default function CustomerDetails() {
         )}
       </div>
 
-      <div className="stat-grid" style={{ marginTop: 16 }}>
-        <div className="stat accent">
-          <div className="stat-label">إجمالي أرباح هذا العميل</div>
-          <div className="stat-value num">{money(total)}</div>
+      {isAdmin && (
+        <div className="stat-grid" style={{ marginTop: 16 }}>
+          <div className="stat accent">
+            <div className="stat-label">إجمالي أرباح هذا العميل</div>
+            <div className="stat-value num">{money(total)}</div>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="page-head" style={{ marginTop: 24 }}>
         <h2 className="card-title" style={{ margin: 0 }}>
@@ -129,6 +187,33 @@ export default function CustomerDetails() {
             void load()
           }}
         />
+      </Modal>
+
+      <Modal
+        title="حذف العميل"
+        open={deleteOpen}
+        onClose={() => {
+          if (deleting) return
+          setDeleteOpen(false)
+        }}
+      >
+        {deleteError && <div className="alert alert-error">{deleteError}</div>}
+        <p>
+          هل أنت متأكد من حذف <strong>{customer.full_name}</strong>؟
+        </p>
+        <p className="muted">
+          {rows.length > 0
+            ? `سيتم أيضاً حذف ${count(rows.length)} معاملة مرتبطة بهذا العميل. لا يمكن التراجع عن هذا الإجراء.`
+            : 'لا يمكن التراجع عن هذا الإجراء.'}
+        </p>
+        <div className="form-actions">
+          <button type="button" className="btn btn-danger" onClick={() => void confirmDelete()} disabled={deleting}>
+            {deleting ? 'جارٍ الحذف…' : 'حذف العميل'}
+          </button>
+          <button type="button" className="btn btn-ghost" onClick={() => setDeleteOpen(false)} disabled={deleting}>
+            إلغاء
+          </button>
+        </div>
       </Modal>
 
       <Modal title="إضافة معاملة" open={txOpen} onClose={() => setTxOpen(false)}>

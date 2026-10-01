@@ -482,6 +482,12 @@ textarea {
   color: var(--warning);
 }
 
+.btn-danger {
+  background: #fdeceb;
+  border-color: #f3c7c4;
+  color: var(--danger);
+}
+
 .btn-sm {
   padding: 5px 10px;
   font-size: 13px;
