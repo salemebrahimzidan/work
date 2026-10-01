@@ -682,17 +682,40 @@ textarea {
   color: var(--muted);
 }
 
-.detail-list {
+.profile-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
 }
 
-.detail-item .stat-label {
-  margin-bottom: 2px;
+.profile-field,
+.profile-notes {
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f6f8f8;
 }
 
-.detail-item .value {
+.profile-notes {
+  margin-top: 10px;
+}
+
+.profile-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.profile-value {
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.profile-field.is-empty .profile-value {
+  color: #98a2b3;
   font-weight: 600;
 }
 
@@ -1175,6 +1198,12 @@ textarea {
   }
 }
 
+@container (max-width: 720px) {
+  .profile-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @container (max-width: 360px) {
   .city-chart {
     grid-template-columns: 1fr;
@@ -1184,5 +1213,9 @@ textarea {
 
   .city-legend {
     width: 100%;
+  }
+
+  .profile-grid {
+    grid-template-columns: 1fr;
   }
 }
