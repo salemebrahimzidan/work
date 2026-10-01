@@ -7,6 +7,7 @@ import type { TransactionDetail } from '../lib/types'
 import Modal from '../components/Modal'
 import TransactionForm from '../components/TransactionForm'
 import TransactionsTable from '../components/TransactionsTable'
+import SelectField from '../components/SelectField'
 
 export default function Transactions() {
   const { isAdmin } = useAuth()
@@ -79,30 +80,28 @@ export default function Transactions() {
 
           <div className="field">
             <label htmlFor="tx-nationality">الجنسية</label>
-            <select
+            <SelectField
               id="tx-nationality"
               value={nationality}
-              onChange={(e) => setNationality(e.target.value)}
-            >
-              <option value="">كل الجنسيات</option>
-              {nationalities.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
+              onChange={setNationality}
+              options={[
+                { value: '', label: 'كل الجنسيات' },
+                ...nationalities.map((item) => ({ value: item, label: item })),
+              ]}
+            />
           </div>
 
           <div className="field">
             <label htmlFor="tx-city">المدينة</label>
-            <select id="tx-city" value={city} onChange={(e) => setCity(e.target.value)}>
-              <option value="">كل المدن</option>
-              {cities.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
+            <SelectField
+              id="tx-city"
+              value={city}
+              onChange={setCity}
+              options={[
+                { value: '', label: 'كل المدن' },
+                ...cities.map((item) => ({ value: item, label: item })),
+              ]}
+            />
           </div>
 
           <div className="field">

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/format'
 import { useAuth } from '../auth/AuthProvider'
 import { useCustomerOptions } from '../lib/hooks'
+import SelectField from './SelectField'
 
 const SERVICES = [
   'تجديد إقامة',
@@ -34,6 +35,11 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setError('')
+
+    if (!customerId) {
+      setError('اختر العميل')
+      return
+    }
 
     const amount = Number(profit)
     if (!Number.isFinite(amount) || amount < 0) {
@@ -71,19 +77,18 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
         {!fixedCustomerId && (
           <div className="field full">
             <label htmlFor="customer">العميل *</label>
-            <select
+            <SelectField
               id="customer"
-              required
               value={customerId}
-              onChange={(e) => setCustomerId(e.target.value)}
-            >
-              <option value="">— اختر العميل —</option>
-              {customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.full_name} — {customer.mobile}
-                </option>
-              ))}
-            </select>
+              onChange={setCustomerId}
+              options={[
+                { value: '', label: '— اختر العميل —' },
+                ...customers.map((customer) => ({
+                  value: customer.id,
+                  label: `${customer.full_name} — ${customer.mobile}`,
+                })),
+              ]}
+            />
           </div>
         )}
 
