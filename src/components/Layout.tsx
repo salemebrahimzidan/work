@@ -10,7 +10,7 @@ const links = [
   { to: '/transactions?status=completed', label: 'مكتملة', admin: false },
   { to: '/profits', label: 'الأرباح', admin: true },
   { to: '/services', label: 'سداد مدفوعات حكومية', admin: true },
-  { to: '/taqeeb', label: 'تعقيب', admin: true },
+  { to: '/taqeeb', label: 'خدمات وزاره التجاره', admin: true },
   { to: '/fawateer', label: 'سداد فواتير', admin: true },
 ]
 

@@ -288,7 +288,12 @@ export default function Services({ category }: { category: ServiceCategory }) {
         onDelete={setDeleting}
       />
 
-      <Modal title={`خدمة ${serviceCategoryLabel[category]} جديدة`} center open={addingOpen} onClose={closeAdd}>
+      <Modal
+        title={category === 'taqeeb' ? 'خدمة جديدة' : `خدمة ${serviceCategoryLabel[category]} جديدة`}
+        center
+        open={addingOpen}
+        onClose={closeAdd}
+      >
         {error && <div className="alert alert-error">{error}</div>}
         <div className="service-add-form">
           <div className="field">
