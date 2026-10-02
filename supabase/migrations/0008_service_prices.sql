@@ -33,8 +33,7 @@ values
   ('تجديد رخصة', 4, false),
   ('تأمين طبي', 5, false),
   ('خروج وعودة', 6, false),
-  ('تجديد جواز', 7, false),
-  ('خدمة أخرى', 8, true)
+  ('تجديد جواز', 7, false)
 on conflict (name) do nothing;
 
 alter table public.services enable row level security;

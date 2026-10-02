@@ -6,18 +6,20 @@ interface Props {
   extra?: ReactNode
   open: boolean
   compact?: boolean
+  center?: boolean
   hideHeader?: boolean
   onClose: () => void
   children: ReactNode
 }
 
-export default function Modal({ title, subtitle, extra, open, compact, hideHeader, onClose, children }: Props) {
+export default function Modal({ title, subtitle, extra, open, compact, center, hideHeader, onClose, children }: Props) {
   if (!open) return null
+  const centered = compact || center
 
   return (
-    <div className={compact ? 'modal-backdrop modal-backdrop-center' : 'modal-backdrop'} role="presentation">
+    <div className={centered ? 'modal-backdrop modal-backdrop-center' : 'modal-backdrop'} role="presentation">
       <div
-        className={compact ? 'modal modal-compact' : 'modal'}
+        className={compact ? 'modal modal-compact' : center ? 'modal modal-center' : 'modal'}
         role="dialog"
         aria-modal="true"
         aria-label={title}

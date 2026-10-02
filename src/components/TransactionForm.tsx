@@ -13,7 +13,6 @@ const SERVICES = [
   'تأمين طبي',
   'خروج وعودة',
   'تجديد جواز',
-  'خدمة أخرى',
 ]
 
 function amountField(value: string | number | null | undefined): string {
