@@ -9,12 +9,22 @@ function amountField(value: string | null): string {
   return Number.isFinite(amount) ? String(amount) : ''
 }
 
+function validAmount(value: string): boolean {
+  if (value === '') return false
+  const amount = Number(value)
+  return Number.isFinite(amount) && amount >= 0
+}
+
 export default function Services() {
   const [rows, setRows] = useState<ServicePrice[]>([])
   const [drafts, setDrafts] = useState<Record<string, { transaction_value: string; commission: string }>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [newName, setNewName] = useState('')
+  const [newValue, setNewValue] = useState('')
+  const [newCommission, setNewCommission] = useState('')
+  const [adding, setAdding] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -65,15 +75,7 @@ export default function Services() {
     const draft = drafts[row.id]
     const valueAmount = Number(draft?.transaction_value)
     const commissionAmount = Number(draft?.commission)
-    if (
-      !draft ||
-      draft.transaction_value === '' ||
-      draft.commission === '' ||
-      !Number.isFinite(valueAmount) ||
-      valueAmount < 0 ||
-      !Number.isFinite(commissionAmount) ||
-      commissionAmount < 0
-    ) {
+    if (!draft || !validAmount(draft.transaction_value) || !validAmount(draft.commission)) {
       setError('أدخل قيمة المعاملة وعمولة المكتب')
       return
     }
@@ -93,6 +95,50 @@ export default function Services() {
       setError(errorMessage(saveError))
       return
     }
+    void load()
+  }
+
+  async function addService() {
+    const name = newName.trim()
+    const valueAmount = Number(newValue)
+    const commissionAmount = Number(newCommission)
+    if (!name) {
+      setError('أدخل اسم الخدمة')
+      return
+    }
+    if (!validAmount(newValue) || !validAmount(newCommission)) {
+      setError('أدخل قيمة المعاملة وعمولة المكتب')
+      return
+    }
+    if (rows.some((row) => row.name.trim() === name)) {
+      setError('هذه الخدمة موجودة بالفعل')
+      return
+    }
+
+    const sortOrder = Math.max(0, ...rows.map((row) => row.sort_order)) + 1
+    setAdding(true)
+    setError('')
+    const { error: insertError } = await supabase.from('services').insert({
+      name,
+      transaction_value: valueAmount.toFixed(2),
+      commission: commissionAmount.toFixed(2),
+      manual: false,
+      sort_order: sortOrder,
+    })
+    setAdding(false)
+
+    if (insertError) {
+      setError(
+        /duplicate|unique|services_name_key/i.test(errorMessage(insertError))
+          ? 'هذه الخدمة موجودة بالفعل'
+          : errorMessage(insertError),
+      )
+      return
+    }
+
+    setNewName('')
+    setNewValue('')
+    setNewCommission('')
     void load()
   }
 
@@ -168,11 +214,58 @@ export default function Services() {
                   )}
                 </tr>
               ))}
+              <tr>
+                <td>
+                  <input
+                    id="service-name"
+                    placeholder="خدمة جديدة"
+                    aria-label="اسم الخدمة الجديدة"
+                    value={newName}
+                    onChange={(event) => setNewName(event.target.value)}
+                  />
+                </td>
+                <td>
+                  <input
+                    id="service-value"
+                    dir="ltr"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    placeholder="0"
+                    aria-label="قيمة المعاملة للخدمة الجديدة"
+                    value={newValue}
+                    onChange={(event) => setNewValue(event.target.value)}
+                  />
+                </td>
+                <td>
+                  <input
+                    id="service-commission"
+                    dir="ltr"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    placeholder="0"
+                    aria-label="عمولة المكتب للخدمة الجديدة"
+                    value={newCommission}
+                    onChange={(event) => setNewCommission(event.target.value)}
+                  />
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    disabled={adding}
+                    onClick={() => void addService()}
+                  >
+                    {adding ? 'جارٍ الحفظ…' : 'إضافة'}
+                  </button>
+                </td>
+              </tr>
             </tbody>
           </table>
-          {rows.length === 0 && (
-            <div className="empty">{loading ? 'جارٍ التحميل…' : 'لا توجد خدمات'}</div>
-          )}
+          {loading && rows.length === 0 && <div className="empty">جارٍ التحميل…</div>}
         </div>
       </div>
     </>
