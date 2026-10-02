@@ -89,6 +89,9 @@ a {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .nav-group {
@@ -485,6 +488,12 @@ tbody tr:hover {
   background: #fafbfc;
 }
 
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 tbody tr.row-open {
   background: #fff8ee;
 }
@@ -517,6 +526,26 @@ tbody tr.row-open:hover {
   padding: 32px 16px;
   text-align: center;
   color: var(--muted);
+}
+
+.price-section + .price-section {
+  margin-top: 22px;
+}
+
+.price-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.price-section-head h2 {
+  font-size: 18px;
+}
+
+.price-section-head .page-sub {
+  margin-top: 2px;
 }
 
 .price-card {
@@ -595,6 +624,18 @@ tbody tr.row-open:hover {
 
 .price-actions .btn-sm {
   min-width: 4.5rem;
+}
+
+.price-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-top: 12px;
+}
+
+.price-pager .btn {
+  min-width: 36px;
 }
 
 .service-add-form {
@@ -1076,6 +1117,21 @@ button.badge-cancelled:hover {
 
 .modal-backdrop-center {
   align-items: center;
+}
+
+.modal-backdrop-raised {
+  z-index: 60;
+}
+
+.service-steps-btn {
+  align-self: flex-start;
+  margin-top: 8px;
+}
+
+.service-steps {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.7;
 }
 
 .modal {

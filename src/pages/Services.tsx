@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/format'
-import type { ServicePrice } from '../lib/types'
+import { asServiceCategory, serviceCategoryLabel, type ServiceCategory, type ServicePrice } from '../lib/types'
 import Modal from '../components/Modal'
 
 function amountField(value: string | null): string {
@@ -17,9 +17,11 @@ function validAmount(value: string): boolean {
   return Number.isFinite(amount) && amount >= 0
 }
 
-export default function Services() {
+export default function Services({ category }: { category: ServiceCategory }) {
   const [rows, setRows] = useState<ServicePrice[]>([])
-  const [drafts, setDrafts] = useState<Record<string, { name: string; transaction_value: string; commission: string }>>({})
+  const [drafts, setDrafts] = useState<
+    Record<string, { name: string; transaction_value: string; commission: string; steps: string }>
+  >({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [savingId, setSavingId] = useState<string | null>(null)
@@ -28,6 +30,9 @@ export default function Services() {
   const [newName, setNewName] = useState('')
   const [newValue, setNewValue] = useState('')
   const [newCommission, setNewCommission] = useState('')
+  const [newSteps, setNewSteps] = useState('')
+  const [categoryReady, setCategoryReady] = useState(true)
+  const [stepsReady, setStepsReady] = useState(true)
   const [addingOpen, setAddingOpen] = useState(false)
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<ServicePrice | null>(null)
@@ -35,10 +40,35 @@ export default function Services() {
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
-    const { data, error: queryError } = await supabase
-      .from('services')
-      .select('id, name, transaction_value, commission, manual, sort_order')
-      .order('sort_order')
+    const columns = 'id, name, transaction_value, commission, manual, sort_order, category, steps'
+    const primary = await supabase.from('services').select(columns).order('sort_order')
+    // Older databases may not have category (0017) or steps (0018) yet.
+    let data: Array<Omit<ServicePrice, 'category' | 'steps'> & { category?: string | null; steps?: string | null }> | null =
+      primary.data
+    let queryError = primary.error
+    let ready = true
+    let stepsColumn = true
+    if (queryError && /steps|schema cache/i.test(errorMessage(queryError))) {
+      stepsColumn = false
+      const withoutSteps = await supabase
+        .from('services')
+        .select('id, name, transaction_value, commission, manual, sort_order, category')
+        .order('sort_order')
+      data = withoutSteps.data
+      queryError = withoutSteps.error
+    }
+    if (queryError && /category|schema cache/i.test(errorMessage(queryError))) {
+      ready = false
+      stepsColumn = false
+      const fallback = await supabase
+        .from('services')
+        .select('id, name, transaction_value, commission, manual, sort_order')
+        .order('sort_order')
+      data = fallback.data
+      queryError = fallback.error
+    }
+    setCategoryReady(ready)
+    setStepsReady(stepsColumn)
 
     if (queryError) {
       const message = errorMessage(queryError)
@@ -49,7 +79,11 @@ export default function Services() {
       )
       setRows([])
     } else {
-      const list = (data ?? []) as ServicePrice[]
+      const list: ServicePrice[] = (data ?? []).map((row) => ({
+        ...row,
+        category: asServiceCategory(row.category),
+        steps: row.steps?.trim() ? row.steps : null,
+      }))
       setRows(list)
       setDrafts(
         Object.fromEntries(
@@ -59,6 +93,7 @@ export default function Services() {
               name: row.name,
               transaction_value: amountField(row.transaction_value),
               commission: amountField(row.commission),
+              steps: row.steps ?? '',
             },
           ]),
         ),
@@ -71,7 +106,7 @@ export default function Services() {
     void load()
   }, [load])
 
-  function setDraft(id: string, key: 'name' | 'transaction_value' | 'commission', value: string) {
+  function setDraft(id: string, key: 'name' | 'transaction_value' | 'commission' | 'steps', value: string) {
     setDrafts((current) => ({
       ...current,
       [id]: { ...current[id], [key]: value },
@@ -96,17 +131,19 @@ export default function Services() {
 
     setSavingId(row.id)
     setError('')
+    const steps = draft?.steps.trim() || null
     const { error: saveError } = await supabase
       .from('services')
-      .update(
-        row.manual
+      .update({
+        ...(row.manual
           ? { name }
           : {
               name,
               transaction_value: Number(draft.transaction_value).toFixed(2),
               commission: Number(draft.commission).toFixed(2),
-            },
-      )
+            }),
+        ...(stepsReady ? { steps } : {}),
+      })
       .eq('id', row.id)
     setSavingId(null)
 
@@ -153,7 +190,13 @@ export default function Services() {
       return
     }
 
-    const sortOrder = Math.max(0, ...rows.map((row) => row.sort_order)) + 1
+    if (!categoryReady && category !== 'sdad') {
+      setError('جدول الخدمات غير جاهز. شغّل ملف 0017_service_category.sql في Supabase ثم حدّث الصفحة.')
+      return
+    }
+
+    const group = rows.filter((row) => row.category === category)
+    const sortOrder = Math.max(0, ...group.map((row) => row.sort_order)) + 1
     setAdding(true)
     setError('')
     const { error: insertError } = await supabase.from('services').insert({
@@ -162,6 +205,8 @@ export default function Services() {
       commission: commissionAmount.toFixed(2),
       manual: false,
       sort_order: sortOrder,
+      ...(categoryReady ? { category } : {}),
+      ...(stepsReady ? { steps: newSteps.trim() || null } : {}),
     })
     setAdding(false)
 
@@ -169,7 +214,9 @@ export default function Services() {
       setError(
         /duplicate|unique|services_name_key/i.test(errorMessage(insertError))
           ? 'هذه الخدمة موجودة بالفعل'
-          : errorMessage(insertError),
+          : category === 'fawateer' && /services_category_check/i.test(errorMessage(insertError))
+            ? 'جدول سداد الفواتير غير جاهز. شغّل ملف 0019_service_fawateer.sql في Supabase ثم حدّث الصفحة.'
+            : errorMessage(insertError),
       )
       return
     }
@@ -177,6 +224,7 @@ export default function Services() {
     setNewName('')
     setNewValue('')
     setNewCommission('')
+    setNewSteps('')
     setAddingOpen(false)
     void load()
   }
@@ -185,6 +233,7 @@ export default function Services() {
     setNewName('')
     setNewValue('')
     setNewCommission('')
+    setNewSteps('')
     setError('')
     setAddingOpen(true)
   }
@@ -201,6 +250,7 @@ export default function Services() {
         name: row.name,
         transaction_value: amountField(row.transaction_value),
         commission: amountField(row.commission),
+        steps: row.steps ?? '',
       },
     }))
     setError('')
@@ -216,10 +266,13 @@ export default function Services() {
     <>
       <div className="page-head">
         <div>
-          <h1>أسعار الخدمات</h1>
+          <h1>{serviceCategoryLabel[category]}</h1>
           <p className="page-sub">
             عند اختيار الخدمة في معاملة جديدة تُعبأ قيمة المعاملة وعمولة المكتب من هنا.
           </p>
+          {category !== 'sdad' && !categoryReady && (
+            <p className="page-sub">شغّل ملف 0017_service_category.sql في Supabase ثم حدّث الصفحة حتى تُحفظ هذه الخدمات.</p>
+          )}
         </div>
         <button type="button" className="btn btn-primary" onClick={openAdd}>
           إضافة خدمة
@@ -228,49 +281,14 @@ export default function Services() {
 
       {error && !addingOpen && !editing && <div className="alert alert-error">{error}</div>}
 
-      <div className="card price-card">
-        {loading && rows.length === 0 ? (
-          <div className="empty">جارٍ التحميل…</div>
-        ) : (
-          <div className="price-sheet">
-            <div className="price-head">
-              <span>الخدمة</span>
-              <span>قيمة المعاملة (ر.س)</span>
-              <span>عمولة المكتب (ر.س)</span>
-              <span />
-            </div>
-            {rows.map((row) => (
-              <div className="price-row" key={row.id}>
-                <div className="price-name">{row.name}</div>
-                {row.manual ? (
-                  <p className="price-manual">تُدخل يدوياً عند إضافة المعاملة</p>
-                ) : (
-                  <>
-                    <span className="price-value num">{amountField(row.transaction_value) || '—'}</span>
-                    <span className="price-value num">{amountField(row.commission) || '—'}</span>
-                  </>
-                )}
-                <div className="price-actions">
-                  <button type="button" className="btn btn-primary btn-sm" onClick={() => openEdit(row)}>
-                    تعديل الخدمة
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-icon"
-                    aria-label={`حذف ${row.name}`}
-                    title="حذف"
-                    onClick={() => setDeleting(row)}
-                  >
-                    <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <PriceSection
+        rows={rows.filter((row) => row.category === category)}
+        loading={loading && rows.length === 0}
+        onEdit={openEdit}
+        onDelete={setDeleting}
+      />
 
-      <Modal title="خدمة جديدة" center open={addingOpen} onClose={closeAdd}>
+      <Modal title={`خدمة ${serviceCategoryLabel[category]} جديدة`} center open={addingOpen} onClose={closeAdd}>
         {error && <div className="alert alert-error">{error}</div>}
         <div className="service-add-form">
           <div className="field">
@@ -310,6 +328,19 @@ export default function Services() {
               onChange={(event) => setNewCommission(event.target.value)}
             />
           </div>
+          <div className="field">
+            <label htmlFor="service-steps">الخطوات</label>
+            <textarea
+              id="service-steps"
+              rows={4}
+              placeholder="كل خطوة في سطر"
+              value={newSteps}
+              onChange={(event) => setNewSteps(event.target.value)}
+            />
+          </div>
+          {!stepsReady && (
+            <p className="muted">خطوات الخدمة غير جاهزة. شغّل ملف 0018_service_steps.sql في Supabase ثم حدّث الصفحة.</p>
+          )}
           <div className="form-actions">
             <button type="button" className="btn btn-primary" disabled={adding} onClick={() => void addService()}>
               {adding ? 'جارٍ الحفظ…' : 'إضافة'}
@@ -366,6 +397,19 @@ export default function Services() {
                   </div>
                 </>
               )}
+              <div className="field">
+                <label htmlFor="edit-service-steps">الخطوات</label>
+                <textarea
+                  id="edit-service-steps"
+                  rows={4}
+                  placeholder="كل خطوة في سطر"
+                  value={drafts[editing.id]?.steps ?? ''}
+                  onChange={(event) => setDraft(editing.id, 'steps', event.target.value)}
+                />
+              </div>
+              {!stepsReady && (
+                <p className="muted">خطوات الخدمة غير جاهزة. شغّل ملف 0018_service_steps.sql في Supabase ثم حدّث الصفحة.</p>
+              )}
               <div className="form-actions">
                 <button
                   type="button"
@@ -406,5 +450,113 @@ export default function Services() {
         )}
       </Modal>
     </>
+  )
+}
+
+const PAGE_SIZE = 12
+
+function PriceSection({
+  rows,
+  loading,
+  onEdit,
+  onDelete,
+}: {
+  rows: ServicePrice[]
+  loading: boolean
+  onEdit: (row: ServicePrice) => void
+  onDelete: (row: ServicePrice) => void
+}) {
+  const [page, setPage] = useState(0)
+  const previousCount = useRef(rows.length)
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
+  const currentPage = Math.min(page, pageCount - 1)
+  const visibleRows = rows.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE)
+
+  useEffect(() => {
+    const alreadyLoaded = previousCount.current > 0
+    if (alreadyLoaded && rows.length > previousCount.current) {
+      setPage(Math.max(0, Math.ceil(rows.length / PAGE_SIZE) - 1))
+    } else {
+      setPage((current) => Math.min(current, Math.max(0, Math.ceil(rows.length / PAGE_SIZE) - 1)))
+    }
+    previousCount.current = rows.length
+  }, [rows.length])
+
+  return (
+    <section className="price-section">
+      <div className="card price-card">
+        {loading ? (
+          <div className="empty">جارٍ التحميل…</div>
+        ) : rows.length === 0 ? (
+          <div className="empty">لا توجد خدمات</div>
+        ) : (
+          <div className="price-sheet">
+            <div className="price-head">
+              <span>الخدمة</span>
+              <span>قيمة المعاملة (ر.س)</span>
+              <span>عمولة المكتب (ر.س)</span>
+              <span />
+            </div>
+            {visibleRows.map((row) => (
+              <div className="price-row" key={row.id}>
+                <div className="price-name">{row.name}</div>
+                {row.manual ? (
+                  <p className="price-manual">تُدخل يدوياً عند إضافة المعاملة</p>
+                ) : (
+                  <>
+                    <span className="price-value num">{amountField(row.transaction_value) || '—'}</span>
+                    <span className="price-value num">{amountField(row.commission) || '—'}</span>
+                  </>
+                )}
+                <div className="price-actions">
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => onEdit(row)}>
+                    تعديل الخدمة
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-icon"
+                    aria-label={`حذف ${row.name}`}
+                    title="حذف"
+                    onClick={() => onDelete(row)}
+                  >
+                    <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {rows.length > PAGE_SIZE && (
+          <div className="price-pager">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              disabled={currentPage === 0}
+              onClick={() => setPage(currentPage - 1)}
+            >
+              السابق
+            </button>
+            {Array.from({ length: pageCount }, (_, index) => (
+              <button
+                key={index}
+                type="button"
+                className={index === currentPage ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
+                onClick={() => setPage(index)}
+              >
+                {index + 1}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              disabled={currentPage >= pageCount - 1}
+              onClick={() => setPage(currentPage + 1)}
+            >
+              التالي
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
   )
 }
