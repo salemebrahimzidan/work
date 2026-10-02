@@ -60,7 +60,7 @@ export default function Dashboard() {
     cancelled: 0,
     completed: 0,
   })
-  const [monthProfit, setMonthProfit] = useState(0)
+  const [profit, setProfit] = useState({ total: 0, today: 0, month: 0 })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [openStatus, setOpenStatus] = useState<StatusKey | null>(null)
@@ -73,19 +73,15 @@ export default function Dashboard() {
     setLoading(true)
     setError('')
     const month = riyadhMonthBounds()
-    const [statsRes, monthRes, ...statusRes] = await Promise.all([
+    const [statsRes, profitRes, ...statusRes] = await Promise.all([
       supabase.rpc('dashboard_stats'),
-      supabase
-        .from('transactions')
-        .select('profit')
-        .gte('created_at', month.start)
-        .lt('created_at', month.end),
+      supabase.from('transactions').select('profit, created_at').eq('status', 'completed'),
       ...STATUSES.map((item) =>
         supabase.from('transactions').select('id', { count: 'exact', head: true }).eq('status', item.status),
       ),
     ])
 
-    const failure = statsRes.error || monthRes.error || statusRes.find((result) => result.error)?.error
+    const failure = statsRes.error || profitRes.error || statusRes.find((result) => result.error)?.error
     if (statsRes.error) setError(errorMessage(statsRes.error))
     else setStats(statsRes.data as DashboardStats)
 
@@ -96,8 +92,29 @@ export default function Dashboard() {
       next[item.status] = statusRes[index].count ?? 0
     })
     setStatusCounts(next)
-    if (!monthRes.error) {
-      setMonthProfit((monthRes.data ?? []).reduce((sum, row) => sum + Number(row.profit), 0))
+    if (!profitRes.error) {
+      const today = riyadhToday()
+      const start = new Date(month.start).getTime()
+      const end = new Date(month.end).getTime()
+      let total = 0
+      let todayProfit = 0
+      let monthProfit = 0
+      for (const row of profitRes.data ?? []) {
+        const amount = Number(row.profit)
+        if (!Number.isFinite(amount)) continue
+        total += amount
+        const created = new Date(row.created_at)
+        const day = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Riyadh',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(created)
+        if (day === today) todayProfit += amount
+        const time = created.getTime()
+        if (time >= start && time < end) monthProfit += amount
+      }
+      setProfit({ total, today: todayProfit, month: monthProfit })
     }
     setLoading(false)
   }, [])
@@ -190,10 +207,10 @@ export default function Dashboard() {
           tone="profit"
           title="الأرباح"
           caption="إجمالي الأرباح"
-          value={money(stats?.total_profit)}
+          value={money(profit.total)}
           items={[
-            { label: 'اليوم', value: money(stats?.profit_today) },
-            { label: monthLabel(), value: money(monthProfit) },
+            { label: 'اليوم', value: money(profit.today) },
+            { label: monthLabel(), value: money(profit.month) },
           ]}
         />
       </div>

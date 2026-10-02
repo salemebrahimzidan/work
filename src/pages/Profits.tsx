@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { count, errorMessage, money } from '../lib/format'
 import { useCustomerOptions, useFilterValues } from '../lib/hooks'
-import type { DashboardStats, ProfitReport, TransactionDetail } from '../lib/types'
+import type { ProfitReport, TransactionDetail } from '../lib/types'
 import TransactionsTable from '../components/TransactionsTable'
 import SelectField from '../components/SelectField'
 
@@ -27,7 +27,7 @@ export default function Profits() {
   const customers = useCustomerOptions()
   const { nationalities, cities } = useFilterValues()
 
-  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [profit, setProfit] = useState({ total: 0, today: 0, month: 0 })
   const [report, setReport] = useState<ProfitReport | null>(null)
   const [rows, setRows] = useState<TransactionDetail[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,27 +40,53 @@ export default function Profits() {
   const [city, setCity] = useState('')
 
   useEffect(() => {
-    supabase.rpc('dashboard_stats').then(({ data, error: rpcError }) => {
-      if (rpcError) setError(errorMessage(rpcError))
-      else setStats(data as DashboardStats)
-    })
+    supabase
+      .from('transactions')
+      .select('profit, created_at')
+      .eq('status', 'completed')
+      .then(({ data, error: queryError }) => {
+        if (queryError) {
+          setError(errorMessage(queryError))
+          return
+        }
+        const today = todayISO()
+        const monthStart = new Date(`${monthStartISO()}T00:00:00+03:00`).getTime()
+        const [year, month] = today.split('-').map(Number)
+        const nextMonth = month === 12 ? 1 : month + 1
+        const nextYear = month === 12 ? year + 1 : year
+        const monthEnd = new Date(
+          `${nextYear}-${String(nextMonth).padStart(2, '0')}-01T00:00:00+03:00`,
+        ).getTime()
+        let total = 0
+        let todayProfit = 0
+        let monthProfit = 0
+        for (const row of data ?? []) {
+          const amount = Number(row.profit)
+          if (!Number.isFinite(amount)) continue
+          total += amount
+          const created = new Date(row.created_at)
+          const day = new Intl.DateTimeFormat('en-CA', {
+            timeZone: RIYADH_TZ,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(created)
+          if (day === today) todayProfit += amount
+          const time = created.getTime()
+          if (time >= monthStart && time < monthEnd) monthProfit += amount
+        }
+        setProfit({ total, today: todayProfit, month: monthProfit })
+      })
   }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
 
-    const params = {
-      p_from: from || null,
-      p_to: to || null,
-      p_customer_id: customerId || null,
-      p_nationality: nationality || null,
-      p_city: city || null,
-    }
-
     let query = supabase
       .from('transaction_details')
       .select('*')
+      .eq('status', 'completed')
       .order('created_at', { ascending: false })
       .limit(500)
 
@@ -70,13 +96,18 @@ export default function Profits() {
     if (nationality) query = query.eq('nationality', nationality)
     if (city) query = query.eq('city', city)
 
-    const [reportRes, listRes] = await Promise.all([supabase.rpc('profit_report', params), query])
-
-    const failure = reportRes.error || listRes.error
-    if (failure) setError(errorMessage(failure))
+    const { data, error: queryError } = await query
+    if (queryError) setError(errorMessage(queryError))
     else {
-      setReport(reportRes.data as ProfitReport)
-      setRows((listRes.data ?? []) as TransactionDetail[])
+      const list = (data ?? []) as TransactionDetail[]
+      const total = list.reduce((sum, row) => sum + Number(row.original_profit), 0)
+      const summary: ProfitReport = {
+        customers_count: new Set(list.map((row) => row.customer_id)).size,
+        transactions_count: list.length,
+        total_profit: total.toFixed(2),
+      }
+      setReport(summary)
+      setRows(list)
     }
     setLoading(false)
   }, [from, to, customerId, nationality, city])
@@ -99,15 +130,15 @@ export default function Profits() {
       <div className="stat-grid">
         <div className="stat accent">
           <div className="stat-label">أرباح اليوم</div>
-          <div className="stat-value num">{money(stats?.profit_today)}</div>
+          <div className="stat-value num">{money(profit.today)}</div>
         </div>
         <div className="stat accent">
           <div className="stat-label">أرباح هذا الشهر</div>
-          <div className="stat-value num">{money(stats?.profit_month)}</div>
+          <div className="stat-value num">{money(profit.month)}</div>
         </div>
         <div className="stat accent">
           <div className="stat-label">إجمالي الأرباح</div>
-          <div className="stat-value num">{money(stats?.total_profit)}</div>
+          <div className="stat-value num">{money(profit.total)}</div>
         </div>
       </div>
 
