@@ -424,6 +424,13 @@ textarea:focus {
   border-color: var(--primary);
 }
 
+input:read-only,
+input:disabled {
+  background: #f4f7f6;
+  color: inherit;
+  cursor: not-allowed;
+}
+
 .select-field {
   position: relative;
 }
@@ -501,6 +508,12 @@ textarea:focus {
 
 .select-option.active {
   font-weight: 700;
+}
+
+.select-menu.select-menu-fixed {
+  position: fixed;
+  z-index: 80;
+  inset-inline: auto;
 }
 
 textarea {

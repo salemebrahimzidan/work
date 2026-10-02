@@ -58,7 +58,7 @@ export default function Transactions() {
           <h1>المعاملات</h1>
           <p className="page-sub">
             {count(rows.length)} معاملة
-            {isAdmin && <> — إجمالي الربح في النتائج: {money(total)}</>}
+            {isAdmin && <> — إجمالي عمولة المكتب في النتائج: {money(total)}</>}
           </p>
         </div>
         <button type="button" className="btn btn-primary" onClick={() => setAddOpen(true)}>

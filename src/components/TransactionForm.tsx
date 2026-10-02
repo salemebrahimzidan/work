@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/format'
 import { useAuth } from '../auth/AuthProvider'
-import { useCustomerOptions } from '../lib/hooks'
-import SelectField from './SelectField'
+import { useCustomerOptions, useServicePrices } from '../lib/hooks'
+import SelectField, { ComboField } from './SelectField'
 
 const SERVICES = [
   'تجديد إقامة',
@@ -16,6 +16,12 @@ const SERVICES = [
   'خدمة أخرى',
 ]
 
+function amountField(value: string | number | null | undefined): string {
+  if (value == null || value === '') return ''
+  const amount = Number(value)
+  return Number.isFinite(amount) ? String(amount) : ''
+}
+
 interface Props {
   fixedCustomerId?: string
   onSaved: () => void
@@ -25,12 +31,45 @@ interface Props {
 export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: Props) {
   const { session } = useAuth()
   const customers = useCustomerOptions()
+  const { services } = useServicePrices()
   const [customerId, setCustomerId] = useState(fixedCustomerId ?? '')
   const [serviceName, setServiceName] = useState('')
-  const [profit, setProfit] = useState('')
+  const [transactionValue, setTransactionValue] = useState('')
+  const [commission, setCommission] = useState('')
+  const [fromSystem, setFromSystem] = useState(false)
+  const [missingPrice, setMissingPrice] = useState(false)
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  const serviceNames = services.length > 0 ? services.map((item) => item.name) : SERVICES
+
+  function selectService(name: string) {
+    setServiceName(name)
+    const service = services.find((item) => item.name === name)
+    if (!service || service.manual) {
+      if (fromSystem) {
+        setTransactionValue('')
+        setCommission('')
+      }
+      setFromSystem(false)
+      setMissingPrice(false)
+      return
+    }
+    const value = amountField(service.transaction_value)
+    const fee = amountField(service.commission)
+    if (value === '' || fee === '') {
+      setFromSystem(false)
+      setMissingPrice(true)
+      setTransactionValue('')
+      setCommission('')
+      return
+    }
+    setMissingPrice(false)
+    setFromSystem(true)
+    setTransactionValue(value)
+    setCommission(fee)
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -41,9 +80,19 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
       return
     }
 
-    const amount = Number(profit)
-    if (!Number.isFinite(amount) || amount < 0) {
-      setError('قيمة الربح غير صحيحة')
+    if (transactionValue === '' || commission === '') {
+      setError('سعر هذه الخدمة غير محدد في النظام. يضيفه المشرف من صفحة الخدمات.')
+      return
+    }
+
+    const valueAmount = Number(transactionValue)
+    const commissionAmount = Number(commission)
+    if (!Number.isFinite(valueAmount) || valueAmount < 0) {
+      setError('قيمة المعاملة غير صحيحة')
+      return
+    }
+    if (!Number.isFinite(commissionAmount) || commissionAmount < 0) {
+      setError('عمولة المكتب غير صحيحة')
       return
     }
 
@@ -52,7 +101,8 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
     const { error: saveError } = await supabase.from('transactions').insert({
       customer_id: customerId,
       service_name: serviceName.trim(),
-      profit: amount.toFixed(2),
+      transaction_value: valueAmount.toFixed(2),
+      profit: commissionAmount.toFixed(2),
       note: note.trim() || null,
       created_by: session?.user.id,
     })
@@ -68,10 +118,6 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
   return (
     <form onSubmit={handleSubmit}>
       {error && <div className="alert alert-error">{error}</div>}
-
-      <div className="alert alert-info">
-        تنبيه: بعد الحفظ يصبح مبلغ الربح مُقفلاً ولا يمكن تعديله أو حذفه.
-      </div>
 
       <div className="form-grid">
         {!fixedCustomerId && (
@@ -94,34 +140,50 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
 
         <div className="field">
           <label htmlFor="service">اسم المعاملة / الخدمة *</label>
-          <input
+          <ComboField
             id="service"
             required
-            list="service-options"
             value={serviceName}
-            onChange={(e) => setServiceName(e.target.value)}
+            onChange={selectService}
+            options={serviceNames}
           />
-          <datalist id="service-options">
-            {SERVICES.map((item) => (
-              <option key={item} value={item} />
-            ))}
-          </datalist>
         </div>
 
         <div className="field">
-          <label htmlFor="profit">مبلغ الربح (ر.س) *</label>
+          <label htmlFor="transaction_value">قيمة المعاملة (ر.س) *</label>
           <input
-            id="profit"
-            required
+            id="transaction_value"
+            disabled
             dir="ltr"
             type="number"
             min="0"
             step="0.01"
             inputMode="decimal"
-            value={profit}
-            onChange={(e) => setProfit(e.target.value)}
+            value={transactionValue}
           />
         </div>
+
+        <div className="field">
+          <label htmlFor="commission">عمولة المكتب (ر.س) *</label>
+          <input
+            id="commission"
+            disabled
+            dir="ltr"
+            type="number"
+            min="0"
+            step="0.01"
+            inputMode="decimal"
+            value={commission}
+          />
+        </div>
+
+        {(fromSystem || missingPrice) && (
+          <p className="note-line" style={{ gridColumn: '1 / -1', margin: 0 }}>
+            {fromSystem
+              ? 'قيمة المعاملة وعمولة المكتب تُعبأ تلقائياً من أسعار الخدمة.'
+              : 'سعر هذه الخدمة غير محدد بعد. يضيفه المشرف من صفحة الخدمات.'}
+          </p>
+        )}
 
         <div className="field full">
           <label htmlFor="note">ملاحظة (اختياري)</label>

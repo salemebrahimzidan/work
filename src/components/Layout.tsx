@@ -6,6 +6,7 @@ const links = [
   { to: '/customers', label: 'العملاء', admin: false },
   { to: '/transactions', label: 'المعاملات', admin: false },
   { to: '/profits', label: 'الأرباح', admin: true },
+  { to: '/services', label: 'الخدمات', admin: true },
 ]
 
 export default function Layout() {

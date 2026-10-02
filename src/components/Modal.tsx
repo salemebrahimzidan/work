@@ -13,7 +13,7 @@ export default function Modal({ title, subtitle, extra, open, onClose, children 
   if (!open) return null
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <div className="modal-backdrop" role="presentation">
       <div
         className="modal"
         role="dialog"

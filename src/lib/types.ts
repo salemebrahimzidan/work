@@ -32,6 +32,15 @@ export interface CustomerSummary {
   total_profit: string
 }
 
+export interface ServicePrice {
+  id: string
+  name: string
+  transaction_value: string | null
+  commission: string | null
+  manual: boolean
+  sort_order: number
+}
+
 export interface TransactionDetail {
   id: string
   customer_id: string
@@ -41,6 +50,7 @@ export interface TransactionDetail {
   city: string | null
   service_name: string
   original_profit: string
+  transaction_value: string | null
   note: string | null
   created_at: string
 }

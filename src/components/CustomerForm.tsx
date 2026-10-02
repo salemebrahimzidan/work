@@ -2,27 +2,11 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/format'
-import { normalizeMobile } from '../lib/mobile'
+import { SAUDI_MOBILE_PATTERN, normalizeMobile, saudiMobile, saudiMobileInput } from '../lib/mobile'
 import { useAuth } from '../auth/AuthProvider'
 import type { Customer } from '../lib/types'
-
-const NATIONALITIES = [
-  'سعودي',
-  'سوداني',
-  'مصري',
-  'يمني',
-  'سوري',
-  'أردني',
-  'فلسطيني',
-  'باكستاني',
-  'هندي',
-  'بنغلاديشي',
-  'فلبيني',
-  'إندونيسي',
-  'إثيوبي',
-  'تشادي',
-  'نيجيري',
-]
+import { ComboField } from './SelectField'
+import { ALL_NATIONALITIES } from '../data/nationalities'
 
 const CITIES = [
   'جدة',
@@ -50,7 +34,7 @@ export default function CustomerForm({ customer, onSaved, onCancel }: Props) {
   const { session } = useAuth()
   const [form, setForm] = useState({
     full_name: customer?.full_name ?? '',
-    mobile: customer?.mobile ?? '',
+    mobile: saudiMobile(customer?.mobile ?? '') ?? '',
     national_id: customer?.national_id ?? '',
     nationality: customer?.nationality ?? '',
     city: customer?.city ?? '',
@@ -86,10 +70,11 @@ export default function CustomerForm({ customer, onSaved, onCancel }: Props) {
     setExistingId(null)
     setBusy(true)
 
-    const normalized = normalizeMobile(form.mobile)
+    const localMobile = saudiMobile(form.mobile)
+    const normalized = localMobile ? normalizeMobile(localMobile) : ''
     const payload = {
       full_name: form.full_name.trim(),
-      mobile: form.mobile.trim(),
+      mobile: localMobile ?? '',
       national_id: form.national_id.trim() || null,
       nationality: form.nationality.trim() || null,
       city: form.city.trim() || null,
@@ -98,8 +83,8 @@ export default function CustomerForm({ customer, onSaved, onCancel }: Props) {
     }
 
     try {
-      if (!normalized) {
-        setError('رقم الجوال غير صحيح')
+      if (!localMobile) {
+        setError('أدخل رقم جوال سعودي، مثل 0551234567')
         return
       }
 
@@ -163,39 +148,33 @@ export default function CustomerForm({ customer, onSaved, onCancel }: Props) {
             required
             dir="ltr"
             inputMode="tel"
+            autoComplete="tel"
+            placeholder="05xxxxxxxx"
+            pattern={SAUDI_MOBILE_PATTERN}
+            title="رقم جوال سعودي يبدأ بـ 05، مثل 0551234567"
             value={form.mobile}
-            onChange={(e) => set('mobile', e.target.value)}
+            onChange={(e) => set('mobile', saudiMobileInput(e.target.value))}
           />
         </div>
 
         <div className="field">
           <label htmlFor="nationality">الجنسية</label>
-          <input
+          <ComboField
             id="nationality"
-            list="nationality-options"
             value={form.nationality}
-            onChange={(e) => set('nationality', e.target.value)}
+            onChange={(value) => set('nationality', value)}
+            options={ALL_NATIONALITIES}
           />
-          <datalist id="nationality-options">
-            {NATIONALITIES.map((item) => (
-              <option key={item} value={item} />
-            ))}
-          </datalist>
         </div>
 
         <div className="field">
           <label htmlFor="city">المدينة</label>
-          <input
+          <ComboField
             id="city"
-            list="city-options"
             value={form.city}
-            onChange={(e) => set('city', e.target.value)}
+            onChange={(value) => set('city', value)}
+            options={CITIES}
           />
-          <datalist id="city-options">
-            {CITIES.map((item) => (
-              <option key={item} value={item} />
-            ))}
-          </datalist>
         </div>
 
         <div className="field">
