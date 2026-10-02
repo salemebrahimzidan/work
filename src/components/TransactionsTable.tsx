@@ -22,6 +22,7 @@ export default function TransactionsTable({
 }: Props) {
   const { isAdmin } = useAuth()
   const [deleting, setDeleting] = useState<TransactionDetail | null>(null)
+  const [reasonRow, setReasonRow] = useState<TransactionDetail | null>(null)
 
   return (
     <>
@@ -55,7 +56,10 @@ export default function TransactionsTable({
                 </td>
                 {isAdmin && <td className="num strong">{money(row.original_profit)}</td>}
                 <td>
-                  <StatusCell row={row} />
+                  <StatusCell
+                    row={row}
+                    onShowReason={row.status === 'cancelled' ? () => setReasonRow(row) : undefined}
+                  />
                 </td>
                 <td className="muted">{row.note || '—'}</td>
                 <td className="num muted">{formatDate(row.created_at)}</td>
@@ -81,6 +85,15 @@ export default function TransactionsTable({
         )}
       </div>
 
+      <Modal title="سبب الإلغاء" compact hideHeader open={Boolean(reasonRow)} onClose={() => setReasonRow(null)}>
+        {reasonRow && (
+          <ReasonMessage
+            reason={reasonRow.cancel_reason?.trim() ?? ''}
+            onClose={() => setReasonRow(null)}
+          />
+        )}
+      </Modal>
+
       <Modal title="حذف المعاملة" compact hideHeader open={Boolean(deleting)} onClose={() => setDeleting(null)}>
         {deleting && (
           <DeleteConfirm
@@ -97,14 +110,31 @@ export default function TransactionsTable({
   )
 }
 
-function StatusCell({ row }: { row: TransactionDetail }) {
+function StatusCell({ row, onShowReason }: { row: TransactionDetail; onShowReason?: () => void }) {
   const status = transactionStatus(row.status)
   return (
     <div className="status-cell">
-      <span className={status.badge}>{status.label}</span>
-      {row.status === 'cancelled' && row.cancel_reason && (
-        <span className="status-reason">{row.cancel_reason}</span>
+      {onShowReason ? (
+        <button type="button" className={status.badge} onClick={onShowReason} title="عرض سبب الإلغاء">
+          {status.label}
+        </button>
+      ) : (
+        <span className={status.badge}>{status.label}</span>
       )}
+    </div>
+  )
+}
+
+function ReasonMessage({ reason, onClose }: { reason: string; onClose: () => void }) {
+  return (
+    <div className="reason-dialog">
+      <p>
+        <span className="reason-dialog-label">سبب الإلغاء: </span>
+        <span className="reason-dialog-value">{reason || 'لا يوجد سبب'}</span>
+      </p>
+      <button type="button" className="btn btn-primary" onClick={onClose}>
+        إغلاق
+      </button>
     </div>
   )
 }
@@ -137,17 +167,17 @@ function DeleteConfirm({
   }
 
   return (
-    <div>
+    <div className="confirm-dialog">
       {error && <div className="alert alert-error">{error}</div>}
       <p className="confirm-copy">هل أنت متأكد من حذف هذه المعاملة؟</p>
-      <p className="confirm-detail muted">
+      <p className="confirm-detail">
         {transaction.service_name} — {money(transaction.original_profit)}
       </p>
-      <div className="form-actions">
-        <button type="button" className="btn btn-danger" onClick={() => void confirmDelete()} disabled={busy}>
+      <div className="confirm-actions">
+        <button type="button" className="btn confirm-delete" onClick={() => void confirmDelete()} disabled={busy}>
           {busy ? 'جارٍ الحذف…' : 'حذف'}
         </button>
-        <button type="button" className="btn btn-ghost" onClick={onCancel}>
+        <button type="button" className="btn confirm-cancel" onClick={onCancel}>
           إلغاء
         </button>
       </div>

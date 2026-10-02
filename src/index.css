@@ -519,6 +519,90 @@ tbody tr.row-open:hover {
   color: var(--muted);
 }
 
+.price-card {
+  padding: 6px 16px 14px;
+}
+
+.price-sheet {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(12rem, 1.6fr) minmax(9rem, 1fr) minmax(9rem, 1fr) auto;
+  column-gap: 14px;
+}
+
+.price-head,
+.price-row {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  column-gap: 14px;
+  align-items: center;
+}
+
+.price-head {
+  padding: 12px 4px 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+}
+
+.price-row {
+  padding: 8px 4px;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.price-row:last-child {
+  border-bottom: none;
+}
+
+.price-name,
+.price-name-input {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.price-name-input,
+.price-input {
+  width: 100%;
+}
+
+.price-manual {
+  grid-column: 2 / 4;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.price-input {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  padding: 8px 10px;
+}
+
+.price-value {
+  text-align: center;
+  font-weight: 700;
+}
+
+.price-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.price-actions .btn-sm {
+  min-width: 4.5rem;
+}
+
+.service-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 /* ------------------------------------------------------------------- forms */
 .form-grid {
   display: grid;
@@ -749,6 +833,17 @@ textarea {
   color: var(--muted);
 }
 
+button.badge {
+  border: 0;
+  font-family: inherit;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+button.badge-cancelled:hover {
+  background: #f8d4d1;
+}
+
 .badge-admin {
   background: #e6f2f0;
   color: var(--primary-dark);
@@ -788,7 +883,7 @@ textarea {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: 6px;
 }
 
 .status-panel {
@@ -856,10 +951,37 @@ textarea {
   border-top: 1px solid var(--border);
 }
 
-.status-reason {
+.reason-dialog {
+  text-align: start;
+}
+
+.reason-dialog p {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.reason-dialog-label {
   color: var(--muted);
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.reason-dialog-value {
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.reason-dialog .btn {
+  display: block;
+  width: fit-content;
+  margin-top: 14px;
+  margin-inline-start: auto;
+  padding: 5px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .status-actions {
@@ -980,6 +1102,18 @@ textarea {
   overflow: auto;
   padding: 14px;
   background: #f7f8f9;
+}
+
+.modal-center:has(.service-add-form) {
+  max-width: 620px;
+  max-height: none;
+  display: block;
+}
+
+.modal-center:has(.service-add-form) .modal-body {
+  overflow: visible;
+  padding: 16px;
+  background: var(--surface);
 }
 
 .status-search {
@@ -1109,6 +1243,10 @@ textarea {
   padding: 22px 18px 16px;
 }
 
+.confirm-dialog {
+  text-align: center;
+}
+
 .confirm-copy,
 .confirm-detail {
   margin: 0;
@@ -1116,11 +1254,51 @@ textarea {
 }
 
 .confirm-copy {
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.6;
 }
 
 .confirm-detail {
-  margin-top: 6px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.confirm-actions .btn {
+  flex: 1;
+  padding: 11px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.confirm-delete {
+  background: #e5484d;
+  border-color: #e5484d;
+  color: #fff;
+}
+
+.confirm-delete:hover {
+  background: #d33b40;
+  filter: none;
+}
+
+.confirm-cancel {
+  background: #fff;
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.confirm-cancel:hover {
+  background: #f8f9fb;
+  filter: none;
 }
 
 .modal-compact .form-actions {
@@ -1746,6 +1924,46 @@ textarea {
 
   .page-head h1 {
     font-size: 18px;
+  }
+
+  .price-sheet,
+  .price-head,
+  .price-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .price-head {
+    display: none;
+  }
+
+  .price-row {
+    gap: 8px;
+    padding: 12px 0;
+  }
+
+  .price-name,
+  .price-manual,
+  .price-row .btn {
+    grid-column: 1 / -1;
+  }
+
+  .price-name-input {
+    width: 100%;
+  }
+
+  .price-actions {
+    display: grid;
+    grid-template-columns: 1fr auto;
+  }
+
+  .price-row .btn {
+    width: 100%;
+  }
+
+  .price-row .price-actions .btn-icon {
+    width: 42px;
   }
 
   .status-board {
