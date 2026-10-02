@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { count, errorMessage, money } from '../lib/format'
 import { useAuth } from '../auth/AuthProvider'
-import { useFilterValues } from '../lib/hooks'
 import type { TransactionDetail } from '../lib/types'
 import Modal from '../components/Modal'
 import TransactionForm from '../components/TransactionForm'
@@ -11,16 +11,24 @@ import SelectField from '../components/SelectField'
 
 export default function Transactions() {
   const { isAdmin } = useAuth()
-  const { nationalities, cities } = useFilterValues()
   const [rows, setRows] = useState<TransactionDetail[]>([])
   const [search, setSearch] = useState('')
-  const [nationality, setNationality] = useState('')
-  const [city, setCity] = useState('')
+  const [params, setParams] = useSearchParams()
+  const status = params.get('status') ?? ''
+
+  function setStatus(next: string) {
+    const nextParams = new URLSearchParams(params)
+    if (next) nextParams.set('status', next)
+    else nextParams.delete('status')
+    setParams(nextParams, { replace: true })
+  }
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [addOpen, setAddOpen] = useState(false)
+  const requestId = useRef(0)
 
   const load = useCallback(async () => {
+    const id = ++requestId.current
     setLoading(true)
     setError('')
 
@@ -35,14 +43,14 @@ export default function Transactions() {
       const safe = term.replace(/[%,()]/g, ' ')
       query = query.or(`customer_name.ilike.%${safe}%,service_name.ilike.%${safe}%`)
     }
-    if (nationality) query = query.eq('nationality', nationality)
-    if (city) query = query.eq('city', city)
+    if (status) query = query.eq('status', status)
 
     const { data, error: queryError } = await query
+    if (id !== requestId.current) return
     if (queryError) setError(errorMessage(queryError))
     else setRows((data ?? []) as TransactionDetail[])
     setLoading(false)
-  }, [search, nationality, city])
+  }, [search, status])
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 250)
@@ -79,27 +87,17 @@ export default function Transactions() {
           </div>
 
           <div className="field">
-            <label htmlFor="tx-nationality">الجنسية</label>
+            <label htmlFor="tx-status">الحالة</label>
             <SelectField
-              id="tx-nationality"
-              value={nationality}
-              onChange={setNationality}
+              id="tx-status"
+              value={status}
+              onChange={setStatus}
               options={[
-                { value: '', label: 'كل الجنسيات' },
-                ...nationalities.map((item) => ({ value: item, label: item })),
-              ]}
-            />
-          </div>
-
-          <div className="field">
-            <label htmlFor="tx-city">المدينة</label>
-            <SelectField
-              id="tx-city"
-              value={city}
-              onChange={setCity}
-              options={[
-                { value: '', label: 'كل المدن' },
-                ...cities.map((item) => ({ value: item, label: item })),
+                { value: '', label: 'كل الحالات' },
+                { value: 'pending', label: 'قيد الانتظار' },
+                { value: 'in_progress', label: 'قيد التنفيذ' },
+                { value: 'cancelled', label: 'ملغاة' },
+                { value: 'completed', label: 'مكتملة' },
               ]}
             />
           </div>
@@ -111,8 +109,7 @@ export default function Transactions() {
               className="btn btn-ghost"
               onClick={() => {
                 setSearch('')
-                setNationality('')
-                setCity('')
+                setStatus('')
               }}
             >
               مسح التصفية

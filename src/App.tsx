@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard'
 import Customers from './pages/Customers'
 import CustomerDetails from './pages/CustomerDetails'
 import Transactions from './pages/Transactions'
+import TransactionDetails from './pages/TransactionDetails'
 import Profits from './pages/Profits'
 import Services from './pages/Services'
 
@@ -67,6 +68,7 @@ function AuthenticatedApp() {
           <Route path="/customers" element={<Customers />} />
           <Route path="/customers/:id" element={<CustomerDetails />} />
           <Route path="/transactions" element={<Transactions />} />
+          <Route path="/transactions/:id" element={<TransactionDetails />} />
           <Route
             path="/profits"
             element={

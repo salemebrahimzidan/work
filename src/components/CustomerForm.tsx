@@ -158,12 +158,13 @@ export default function CustomerForm({ customer, onSaved, onCancel }: Props) {
         </div>
 
         <div className="field">
-          <label htmlFor="nationality">الجنسية</label>
-          <ComboField
-            id="nationality"
-            value={form.nationality}
-            onChange={(value) => set('nationality', value)}
-            options={ALL_NATIONALITIES}
+          <label htmlFor="national_id">رقم الهوية / الإقامة (اختياري)</label>
+          <input
+            id="national_id"
+            dir="ltr"
+            inputMode="numeric"
+            value={form.national_id}
+            onChange={(e) => set('national_id', e.target.value)}
           />
         </div>
 
@@ -178,13 +179,12 @@ export default function CustomerForm({ customer, onSaved, onCancel }: Props) {
         </div>
 
         <div className="field">
-          <label htmlFor="national_id">رقم الهوية / الإقامة (اختياري)</label>
-          <input
-            id="national_id"
-            dir="ltr"
-            inputMode="numeric"
-            value={form.national_id}
-            onChange={(e) => set('national_id', e.target.value)}
+          <label htmlFor="nationality">الجنسية</label>
+          <ComboField
+            id="nationality"
+            value={form.nationality}
+            onChange={(value) => set('nationality', value)}
+            options={ALL_NATIONALITIES}
           />
         </div>
 

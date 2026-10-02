@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { supabase } from '../lib/supabase'
-import { count, errorMessage, formatDate, money } from '../lib/format'
+import { count, errorMessage, formatDate } from '../lib/format'
 import type { Customer, TransactionDetail } from '../lib/types'
 import Modal from '../components/Modal'
 import CustomerForm from '../components/CustomerForm'
@@ -47,8 +47,6 @@ export default function CustomerDetails() {
   useEffect(() => {
     void load()
   }, [load])
-
-  const total = rows.reduce((sum, row) => sum + Number(row.original_profit), 0)
 
   async function confirmDelete() {
     if (!customer) return
@@ -155,15 +153,6 @@ export default function CustomerDetails() {
           </div>
         )}
       </div>
-
-      {isAdmin && (
-        <div className="stat-grid" style={{ marginTop: 16 }}>
-          <div className="stat accent">
-            <div className="stat-label">إجمالي عمولة المكتب لهذا العميل</div>
-            <div className="stat-value num">{money(total)}</div>
-          </div>
-        </div>
-      )}
 
       <div className="page-head" style={{ marginTop: 24 }}>
         <h2 className="card-title" style={{ margin: 0 }}>

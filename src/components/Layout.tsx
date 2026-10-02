@@ -1,16 +1,35 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 
 const links = [
-  { to: '/', label: 'الرئيسية', admin: true },
+  { to: '/', label: 'لوحة التحكم', admin: true },
   { to: '/customers', label: 'العملاء', admin: false },
-  { to: '/transactions', label: 'المعاملات', admin: false },
+  { to: '/transactions?status=pending', label: 'قيد الانتظار', admin: false },
+  { to: '/transactions?status=in_progress', label: 'قيد التنفيذ', admin: false },
+  { to: '/transactions?status=cancelled', label: 'ملغاة', admin: false },
+  { to: '/transactions?status=completed', label: 'مكتملة', admin: false },
   { to: '/profits', label: 'الأرباح', admin: true },
-  { to: '/services', label: 'الخدمات', admin: true },
+  { to: '/services', label: 'أسعار الخدمات', admin: true },
 ]
 
 export default function Layout() {
   const { session, profile, isAdmin, signOut } = useAuth()
+  const { pathname, search } = useLocation()
+  const statusParam = new URLSearchParams(search).get('status')
+
+  function linkClass(active: boolean) {
+    return active ? 'nav-link active' : 'nav-link'
+  }
+
+  function isMainActive(to: string) {
+    if (to === '/') return pathname === '/'
+    const query = to.split('?')[1]
+    if (query) {
+      const wanted = new URLSearchParams(query).get('status')
+      return pathname.startsWith('/transactions') && statusParam === wanted
+    }
+    return pathname === to || pathname.startsWith(`${to}/`)
+  }
 
   return (
     <div className="app">
@@ -24,15 +43,15 @@ export default function Layout() {
           {links
             .filter((link) => !link.admin || isAdmin)
             .map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              end={link.to === '/'}
-              className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
-            >
-              {link.label}
-            </NavLink>
-          ))}
+              <Link
+                key={link.to}
+                to={link.to}
+                className={linkClass(isMainActive(link.to))}
+                aria-current={isMainActive(link.to) ? 'page' : undefined}
+              >
+                {link.label}
+              </Link>
+            ))}
         </nav>
 
         <div className="user-box">
