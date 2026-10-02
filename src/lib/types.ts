@@ -30,6 +30,7 @@ export interface CustomerSummary {
   created_at: string
   transactions_count: number
   total_profit: string
+  total_transaction_value: string
 }
 
 export interface ServicePrice {

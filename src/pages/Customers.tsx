@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { count, errorMessage, formatDate, money } from '../lib/format'
+import { useAuth } from '../auth/AuthProvider'
 import { useFilterValues } from '../lib/hooks'
 import type { CustomerSummary } from '../lib/types'
 import Modal from '../components/Modal'
@@ -9,6 +10,7 @@ import CustomerForm from '../components/CustomerForm'
 import SelectField from '../components/SelectField'
 
 export default function Customers() {
+  const { isAdmin } = useAuth()
   const { nationalities, cities } = useFilterValues()
   const [rows, setRows] = useState<CustomerSummary[]>([])
   const [search, setSearch] = useState('')
@@ -121,7 +123,7 @@ export default function Customers() {
               <th>الجنسية</th>
               <th>المدينة</th>
               <th>عدد المعاملات</th>
-              <th>إجمالي عمولة المكتب</th>
+              <th>{isAdmin ? 'إجمالي عمولة المكتب' : 'قيمة المعاملة'}</th>
               <th>تاريخ الإضافة</th>
             </tr>
           </thead>
@@ -137,7 +139,9 @@ export default function Customers() {
                 <td>{row.nationality || '—'}</td>
                 <td>{row.city || '—'}</td>
                 <td className="num">{count(row.transactions_count)}</td>
-                <td className="num strong">{money(row.total_profit)}</td>
+                <td className="num strong">
+                  {money(isAdmin ? row.total_profit : row.total_transaction_value)}
+                </td>
                 <td className="num muted">{formatDate(row.created_at)}</td>
               </tr>
             ))}
