@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/format'
 import type { ServicePrice } from '../lib/types'
+import Modal from '../components/Modal'
 
 function amountField(value: string | null): string {
   if (value == null || value === '') return ''
@@ -17,14 +19,18 @@ function validAmount(value: string): boolean {
 
 export default function Services() {
   const [rows, setRows] = useState<ServicePrice[]>([])
-  const [drafts, setDrafts] = useState<Record<string, { transaction_value: string; commission: string }>>({})
+  const [drafts, setDrafts] = useState<Record<string, { name: string; transaction_value: string; commission: string }>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<ServicePrice | null>(null)
+  const [deletingBusy, setDeletingBusy] = useState(false)
   const [newName, setNewName] = useState('')
   const [newValue, setNewValue] = useState('')
   const [newCommission, setNewCommission] = useState('')
+  const [addingOpen, setAddingOpen] = useState(false)
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState<ServicePrice | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -50,6 +56,7 @@ export default function Services() {
           list.map((row) => [
             row.id,
             {
+              name: row.name,
               transaction_value: amountField(row.transaction_value),
               commission: amountField(row.commission),
             },
@@ -64,7 +71,7 @@ export default function Services() {
     void load()
   }, [load])
 
-  function setDraft(id: string, key: 'transaction_value' | 'commission', value: string) {
+  function setDraft(id: string, key: 'name' | 'transaction_value' | 'commission', value: string) {
     setDrafts((current) => ({
       ...current,
       [id]: { ...current[id], [key]: value },
@@ -73,9 +80,16 @@ export default function Services() {
 
   async function save(row: ServicePrice) {
     const draft = drafts[row.id]
-    const valueAmount = Number(draft?.transaction_value)
-    const commissionAmount = Number(draft?.commission)
-    if (!draft || !validAmount(draft.transaction_value) || !validAmount(draft.commission)) {
+    const name = draft?.name.trim() ?? ''
+    if (!name) {
+      setError('أدخل اسم الخدمة')
+      return
+    }
+    if (rows.some((item) => item.id !== row.id && item.name.trim() === name)) {
+      setError('هذه الخدمة موجودة بالفعل')
+      return
+    }
+    if (!row.manual && (!draft || !validAmount(draft.transaction_value) || !validAmount(draft.commission))) {
       setError('أدخل قيمة المعاملة وعمولة المكتب')
       return
     }
@@ -84,17 +98,41 @@ export default function Services() {
     setError('')
     const { error: saveError } = await supabase
       .from('services')
-      .update({
-        transaction_value: valueAmount.toFixed(2),
-        commission: commissionAmount.toFixed(2),
-      })
+      .update(
+        row.manual
+          ? { name }
+          : {
+              name,
+              transaction_value: Number(draft.transaction_value).toFixed(2),
+              commission: Number(draft.commission).toFixed(2),
+            },
+      )
       .eq('id', row.id)
     setSavingId(null)
 
     if (saveError) {
-      setError(errorMessage(saveError))
+      setError(
+        /duplicate|unique|services_name_key/i.test(errorMessage(saveError))
+          ? 'هذه الخدمة موجودة بالفعل'
+          : errorMessage(saveError),
+      )
       return
     }
+    setEditing(null)
+    void load()
+  }
+
+  async function removeService() {
+    if (!deleting) return
+    setDeletingBusy(true)
+    setError('')
+    const { error: deleteError } = await supabase.from('services').delete().eq('id', deleting.id)
+    setDeletingBusy(false)
+    if (deleteError) {
+      setError(errorMessage(deleteError))
+      return
+    }
+    setDeleting(null)
     void load()
   }
 
@@ -139,7 +177,39 @@ export default function Services() {
     setNewName('')
     setNewValue('')
     setNewCommission('')
+    setAddingOpen(false)
     void load()
+  }
+
+  function openAdd() {
+    setNewName('')
+    setNewValue('')
+    setNewCommission('')
+    setError('')
+    setAddingOpen(true)
+  }
+
+  function closeAdd() {
+    if (adding) return
+    setAddingOpen(false)
+  }
+
+  function openEdit(row: ServicePrice) {
+    setDrafts((current) => ({
+      ...current,
+      [row.id]: {
+        name: row.name,
+        transaction_value: amountField(row.transaction_value),
+        commission: amountField(row.commission),
+      },
+    }))
+    setError('')
+    setEditing(row)
+  }
+
+  function closeEdit() {
+    if (savingId) return
+    setEditing(null)
   }
 
   return (
@@ -151,123 +221,190 @@ export default function Services() {
             عند اختيار الخدمة في معاملة جديدة تُعبأ قيمة المعاملة وعمولة المكتب من هنا.
           </p>
         </div>
+        <button type="button" className="btn btn-primary" onClick={openAdd}>
+          إضافة خدمة
+        </button>
       </div>
 
-      {error && <div className="alert alert-error">{error}</div>}
+      {error && !addingOpen && !editing && <div className="alert alert-error">{error}</div>}
 
-      <div className="card">
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>الخدمة</th>
-                <th>قيمة المعاملة (ر.س)</th>
-                <th>عمولة المكتب (ر.س)</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.name}</td>
-                  {row.manual ? (
-                    <td colSpan={3} className="muted">
-                      تُدخل يدوياً عند إضافة المعاملة
-                    </td>
-                  ) : (
-                    <>
-                      <td>
-                        <input
-                          dir="ltr"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          inputMode="decimal"
-                          aria-label={`قيمة المعاملة لـ ${row.name}`}
-                          value={drafts[row.id]?.transaction_value ?? ''}
-                          onChange={(event) => setDraft(row.id, 'transaction_value', event.target.value)}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          dir="ltr"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          inputMode="decimal"
-                          aria-label={`عمولة المكتب لـ ${row.name}`}
-                          value={drafts[row.id]?.commission ?? ''}
-                          onChange={(event) => setDraft(row.id, 'commission', event.target.value)}
-                        />
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="btn btn-primary btn-sm"
-                          disabled={savingId === row.id}
-                          onClick={() => void save(row)}
-                        >
-                          {savingId === row.id ? 'جارٍ الحفظ…' : 'حفظ'}
-                        </button>
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))}
-              <tr>
-                <td>
-                  <input
-                    id="service-name"
-                    placeholder="خدمة جديدة"
-                    aria-label="اسم الخدمة الجديدة"
-                    value={newName}
-                    onChange={(event) => setNewName(event.target.value)}
-                  />
-                </td>
-                <td>
-                  <input
-                    id="service-value"
-                    dir="ltr"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    inputMode="decimal"
-                    placeholder="0"
-                    aria-label="قيمة المعاملة للخدمة الجديدة"
-                    value={newValue}
-                    onChange={(event) => setNewValue(event.target.value)}
-                  />
-                </td>
-                <td>
-                  <input
-                    id="service-commission"
-                    dir="ltr"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    inputMode="decimal"
-                    placeholder="0"
-                    aria-label="عمولة المكتب للخدمة الجديدة"
-                    value={newCommission}
-                    onChange={(event) => setNewCommission(event.target.value)}
-                  />
-                </td>
-                <td>
+      <div className="card price-card">
+        {loading && rows.length === 0 ? (
+          <div className="empty">جارٍ التحميل…</div>
+        ) : (
+          <div className="price-sheet">
+            <div className="price-head">
+              <span>الخدمة</span>
+              <span>قيمة المعاملة (ر.س)</span>
+              <span>عمولة المكتب (ر.س)</span>
+              <span />
+            </div>
+            {rows.map((row) => (
+              <div className="price-row" key={row.id}>
+                <div className="price-name">{row.name}</div>
+                {row.manual ? (
+                  <p className="price-manual">تُدخل يدوياً عند إضافة المعاملة</p>
+                ) : (
+                  <>
+                    <span className="price-value num">{amountField(row.transaction_value) || '—'}</span>
+                    <span className="price-value num">{amountField(row.commission) || '—'}</span>
+                  </>
+                )}
+                <div className="price-actions">
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => openEdit(row)}>
+                    تعديل الخدمة
+                  </button>
                   <button
                     type="button"
-                    className="btn btn-primary btn-sm"
-                    disabled={adding}
-                    onClick={() => void addService()}
+                    className="btn btn-ghost btn-icon"
+                    aria-label={`حذف ${row.name}`}
+                    title="حذف"
+                    onClick={() => setDeleting(row)}
                   >
-                    {adding ? 'جارٍ الحفظ…' : 'إضافة'}
+                    <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
                   </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          {loading && rows.length === 0 && <div className="empty">جارٍ التحميل…</div>}
-        </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      <Modal title="خدمة جديدة" center open={addingOpen} onClose={closeAdd}>
+        {error && <div className="alert alert-error">{error}</div>}
+        <div className="service-add-form">
+          <div className="field">
+            <label htmlFor="service-name">الخدمة</label>
+            <input
+              id="service-name"
+              placeholder="اسم الخدمة"
+              value={newName}
+              onChange={(event) => setNewName(event.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="service-value">قيمة المعاملة (ر.س)</label>
+            <input
+              id="service-value"
+              dir="ltr"
+              type="number"
+              min="0"
+              step="0.01"
+              inputMode="decimal"
+              placeholder="0"
+              value={newValue}
+              onChange={(event) => setNewValue(event.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="service-commission">عمولة المكتب (ر.س)</label>
+            <input
+              id="service-commission"
+              dir="ltr"
+              type="number"
+              min="0"
+              step="0.01"
+              inputMode="decimal"
+              placeholder="0"
+              value={newCommission}
+              onChange={(event) => setNewCommission(event.target.value)}
+            />
+          </div>
+          <div className="form-actions">
+            <button type="button" className="btn btn-primary" disabled={adding} onClick={() => void addService()}>
+              {adding ? 'جارٍ الحفظ…' : 'إضافة'}
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={closeAdd}>
+              إلغاء
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal title="تعديل الخدمة" center open={Boolean(editing)} onClose={closeEdit}>
+        {editing && (
+          <>
+            {error && <div className="alert alert-error">{error}</div>}
+            <div className="service-add-form">
+              <div className="field">
+                <label htmlFor="edit-service-name">الخدمة</label>
+                <input
+                  id="edit-service-name"
+                  value={drafts[editing.id]?.name ?? ''}
+                  onChange={(event) => setDraft(editing.id, 'name', event.target.value)}
+                />
+              </div>
+              {editing.manual ? (
+                <p className="muted">تُدخل قيمة المعاملة وعمولة المكتب يدوياً عند إضافة المعاملة.</p>
+              ) : (
+                <>
+                  <div className="field">
+                    <label htmlFor="edit-service-value">قيمة المعاملة (ر.س)</label>
+                    <input
+                      id="edit-service-value"
+                      dir="ltr"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={drafts[editing.id]?.transaction_value ?? ''}
+                      onChange={(event) => setDraft(editing.id, 'transaction_value', event.target.value)}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="edit-service-commission">عمولة المكتب (ر.س)</label>
+                    <input
+                      id="edit-service-commission"
+                      dir="ltr"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={drafts[editing.id]?.commission ?? ''}
+                      onChange={(event) => setDraft(editing.id, 'commission', event.target.value)}
+                    />
+                  </div>
+                </>
+              )}
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={savingId === editing.id}
+                  onClick={() => void save(editing)}
+                >
+                  {savingId === editing.id ? 'جارٍ الحفظ…' : 'حفظ'}
+                </button>
+                <button type="button" className="btn btn-ghost" onClick={closeEdit}>
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </Modal>
+
+      <Modal title="حذف الخدمة" compact hideHeader open={Boolean(deleting)} onClose={() => setDeleting(null)}>
+        {deleting && (
+          <div className="confirm-dialog">
+            <p className="confirm-copy">هل أنت متأكد من حذف هذه الخدمة؟</p>
+            <p className="confirm-detail">{deleting.name}</p>
+            <div className="confirm-actions">
+              <button
+                type="button"
+                className="btn confirm-delete"
+                disabled={deletingBusy}
+                onClick={() => void removeService()}
+              >
+                {deletingBusy ? 'جارٍ الحذف…' : 'حذف'}
+              </button>
+              <button type="button" className="btn confirm-cancel" onClick={() => setDeleting(null)}>
+                إلغاء
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </>
   )
 }
