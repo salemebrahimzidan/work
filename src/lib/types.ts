@@ -33,6 +33,19 @@ export interface CustomerSummary {
   total_transaction_value: string
 }
 
+export type ServiceCategory = 'sdad' | 'taqeeb' | 'fawateer'
+
+export function asServiceCategory(value: string | null | undefined): ServiceCategory {
+  if (value === 'taqeeb' || value === 'fawateer') return value
+  return 'sdad'
+}
+
+export const serviceCategoryLabel: Record<ServiceCategory, string> = {
+  sdad: 'سداد مدفوعات حكومية',
+  taqeeb: 'تعقيب',
+  fawateer: 'سداد فواتير',
+}
+
 export interface ServicePrice {
   id: string
   name: string
@@ -40,6 +53,8 @@ export interface ServicePrice {
   commission: string | null
   manual: boolean
   sort_order: number
+  category: ServiceCategory
+  steps: string | null
 }
 
 export interface TransactionDetail {

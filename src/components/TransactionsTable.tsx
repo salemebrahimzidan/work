@@ -3,6 +3,7 @@ import { Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { errorMessage, formatDate, money, transactionStatus } from '../lib/format'
+import { useServicePrices } from '../lib/hooks'
 import { supabase } from '../lib/supabase'
 import type { TransactionDetail } from '../lib/types'
 import Modal from './Modal'
@@ -21,8 +22,11 @@ export default function TransactionsTable({
   onChanged,
 }: Props) {
   const { isAdmin } = useAuth()
+  const { services } = useServicePrices()
   const [deleting, setDeleting] = useState<TransactionDetail | null>(null)
   const [reasonRow, setReasonRow] = useState<TransactionDetail | null>(null)
+  const [stepsRow, setStepsRow] = useState<TransactionDetail | null>(null)
+  const stepsText = services.find((item) => item.name === stepsRow?.service_name)?.steps?.trim() ?? ''
 
   return (
     <>
@@ -37,7 +41,7 @@ export default function TransactionsTable({
               <th>الحالة</th>
               <th>ملاحظة</th>
               <th>التاريخ</th>
-              {isAdmin && <th>إجراءات</th>}
+              <th>إجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -63,19 +67,24 @@ export default function TransactionsTable({
                 </td>
                 <td className="muted">{row.note || '—'}</td>
                 <td className="num muted">{formatDate(row.created_at)}</td>
-                {isAdmin && (
-                  <td>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-icon"
-                      aria-label="حذف"
-                      title="حذف"
-                      onClick={() => setDeleting(row)}
-                    >
-                      <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
+                <td>
+                  <div className="row-actions">
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setStepsRow(row)}>
+                      الخطوات
                     </button>
-                  </td>
-                )}
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-icon"
+                        aria-label="حذف"
+                        title="حذف"
+                        onClick={() => setDeleting(row)}
+                      >
+                        <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -84,6 +93,14 @@ export default function TransactionsTable({
           <div className="empty">{loading ? 'جارٍ التحميل…' : 'لا توجد معاملات'}</div>
         )}
       </div>
+
+      <Modal title="الخطوات" subtitle={stepsRow?.service_name} center open={Boolean(stepsRow)} onClose={() => setStepsRow(null)}>
+        {stepsText ? (
+          <p className="service-steps">{stepsText}</p>
+        ) : (
+          <p className="muted">لم تُضف خطوات لهذه الخدمة بعد. يمكن للمشرف كتابتها من صفحة الخدمة.</p>
+        )}
+      </Modal>
 
       <Modal title="سبب الإلغاء" compact hideHeader open={Boolean(reasonRow)} onClose={() => setReasonRow(null)}>
         {reasonRow && (

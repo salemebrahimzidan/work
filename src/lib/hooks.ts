@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
-import type { GroupCount, ServicePrice } from './types'
+import { asServiceCategory, type GroupCount, type ServicePrice } from './types'
 
 export interface CustomerOption {
   id: string
@@ -37,16 +37,44 @@ export function useServicePrices() {
 
   useEffect(() => {
     let active = true
-    supabase
-      .from('services')
-      .select('id, name, transaction_value, commission, manual, sort_order')
-      .order('sort_order')
-      .then(({ data, error: queryError }) => {
-        if (!active) return
-        if (queryError) setError(queryError.message)
-        else setServices((data ?? []) as ServicePrice[])
-        setLoading(false)
-      })
+
+    async function load() {
+      const columns = 'id, name, transaction_value, commission, manual, sort_order, category, steps'
+      const primary = await supabase.from('services').select(columns).order('sort_order')
+      // Older databases may not have category (0017) or steps (0018) yet.
+      let data: Array<Omit<ServicePrice, 'category' | 'steps'> & { category?: string | null; steps?: string | null }> | null =
+        primary.data
+      let queryError = primary.error
+      if (queryError && /steps|schema cache/i.test(queryError.message)) {
+        const withoutSteps = await supabase
+          .from('services')
+          .select('id, name, transaction_value, commission, manual, sort_order, category')
+          .order('sort_order')
+        data = withoutSteps.data
+        queryError = withoutSteps.error
+      }
+      if (queryError && /category|schema cache/i.test(queryError.message)) {
+        const fallback = await supabase
+          .from('services')
+          .select('id, name, transaction_value, commission, manual, sort_order')
+          .order('sort_order')
+        data = fallback.data
+        queryError = fallback.error
+      }
+      if (!active) return
+      if (queryError) setError(queryError.message)
+      else
+        setServices(
+          (data ?? []).map((row) => ({
+            ...row,
+            category: asServiceCategory(row.category),
+            steps: row.steps?.trim() ? row.steps : null,
+          })),
+        )
+      setLoading(false)
+    }
+
+    void load()
     return () => {
       active = false
     }

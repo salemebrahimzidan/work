@@ -9,7 +9,9 @@ const links = [
   { to: '/transactions?status=cancelled', label: 'ملغاة', admin: false },
   { to: '/transactions?status=completed', label: 'مكتملة', admin: false },
   { to: '/profits', label: 'الأرباح', admin: true },
-  { to: '/services', label: 'أسعار الخدمات', admin: true },
+  { to: '/services', label: 'سداد مدفوعات حكومية', admin: true },
+  { to: '/taqeeb', label: 'تعقيب', admin: true },
+  { to: '/fawateer', label: 'سداد فواتير', admin: true },
 ]
 
 export default function Layout() {

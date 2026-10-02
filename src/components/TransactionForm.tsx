@@ -3,17 +3,9 @@ import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/format'
 import { useAuth } from '../auth/AuthProvider'
 import { useCustomerOptions, useServicePrices } from '../lib/hooks'
+import { serviceCategoryLabel, type ServiceCategory } from '../lib/types'
+import Modal from './Modal'
 import SelectField, { ComboField } from './SelectField'
-
-const SERVICES = [
-  'تجديد إقامة',
-  'نقل كفالة',
-  'إصدار تأشيرة',
-  'تجديد رخصة',
-  'تأمين طبي',
-  'خروج وعودة',
-  'تجديد جواز',
-]
 
 function amountField(value: string | number | null | undefined): string {
   if (value == null || value === '') return ''
@@ -32,6 +24,7 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
   const customers = useCustomerOptions()
   const { services } = useServicePrices()
   const [customerId, setCustomerId] = useState(fixedCustomerId ?? '')
+  const [serviceCategory, setServiceCategory] = useState<ServiceCategory | ''>('')
   const [serviceName, setServiceName] = useState('')
   const [transactionValue, setTransactionValue] = useState('')
   const [commission, setCommission] = useState('')
@@ -40,11 +33,25 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [stepsOpen, setStepsOpen] = useState(false)
 
-  const serviceNames = services.length > 0 ? services.map((item) => item.name) : SERVICES
+  const serviceNames =
+    serviceCategory === '' ? [] : services.filter((item) => item.category === serviceCategory).map((item) => item.name)
+  const selectedService = services.find((item) => item.name === serviceName) ?? null
+
+  function selectCategory(value: string) {
+    setServiceCategory(value === 'sdad' || value === 'taqeeb' || value === 'fawateer' ? value : '')
+    setServiceName('')
+    setTransactionValue('')
+    setCommission('')
+    setFromSystem(false)
+    setMissingPrice(false)
+    setStepsOpen(false)
+  }
 
   function selectService(name: string) {
     setServiceName(name)
+    setStepsOpen(false)
     const service = services.find((item) => item.name === name)
     if (!service || service.manual) {
       if (fromSystem) {
@@ -76,6 +83,14 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
 
     if (!customerId) {
       setError('اختر العميل')
+      return
+    }
+    if (!serviceCategory) {
+      setError('اختر نوع الخدمة')
+      return
+    }
+    if (!serviceName.trim()) {
+      setError('اختر الخدمة')
       return
     }
 
@@ -137,16 +152,38 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
           </div>
         )}
 
-        <div className="field">
-          <label htmlFor="service">اسم المعاملة / الخدمة *</label>
-          <ComboField
-            id="service"
-            required
-            value={serviceName}
-            onChange={selectService}
-            options={serviceNames}
+        <div className="field full">
+          <label htmlFor="service-type">نوع الخدمة *</label>
+          <SelectField
+            id="service-type"
+            value={serviceCategory}
+            onChange={selectCategory}
+            options={[
+              { value: '', label: '— اختر نوع الخدمة —' },
+              { value: 'sdad', label: serviceCategoryLabel.sdad },
+              { value: 'taqeeb', label: serviceCategoryLabel.taqeeb },
+              { value: 'fawateer', label: serviceCategoryLabel.fawateer },
+            ]}
           />
         </div>
+
+        {serviceCategory && (
+          <div className="field full">
+            <label htmlFor="service">اسم المعاملة / الخدمة *</label>
+            <ComboField
+              id="service"
+              required
+              value={serviceName}
+              onChange={selectService}
+              options={serviceNames}
+            />
+            {selectedService && (
+              <button type="button" className="btn btn-ghost btn-sm service-steps-btn" onClick={() => setStepsOpen(true)}>
+                الخطوات
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="field">
           <label htmlFor="transaction_value">قيمة المعاملة (ر.س) *</label>
@@ -198,6 +235,14 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
           إلغاء
         </button>
       </div>
+
+      <Modal title="الخطوات" subtitle={serviceName} center raised open={stepsOpen} onClose={() => setStepsOpen(false)}>
+        {selectedService?.steps?.trim() ? (
+          <p className="service-steps">{selectedService.steps}</p>
+        ) : (
+          <p className="muted">لم تُضف خطوات لهذه الخدمة بعد. يمكن للمشرف كتابتها من صفحة الخدمة.</p>
+        )}
+      </Modal>
     </form>
   )
 }

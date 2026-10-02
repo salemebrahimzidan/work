@@ -8,16 +8,24 @@ interface Props {
   compact?: boolean
   center?: boolean
   hideHeader?: boolean
+  raised?: boolean
   onClose: () => void
   children: ReactNode
 }
 
-export default function Modal({ title, subtitle, extra, open, compact, center, hideHeader, onClose, children }: Props) {
+export default function Modal({ title, subtitle, extra, open, compact, center, hideHeader, raised, onClose, children }: Props) {
   if (!open) return null
   const centered = compact || center
+  const backdropClass = [
+    'modal-backdrop',
+    centered ? 'modal-backdrop-center' : '',
+    raised ? 'modal-backdrop-raised' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   return (
-    <div className={centered ? 'modal-backdrop modal-backdrop-center' : 'modal-backdrop'} role="presentation">
+    <div className={backdropClass} role="presentation">
       <div
         className={compact ? 'modal modal-compact' : center ? 'modal modal-center' : 'modal'}
         role="dialog"

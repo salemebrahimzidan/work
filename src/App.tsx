@@ -81,7 +81,23 @@ function AuthenticatedApp() {
             path="/services"
             element={
               <AdminOnly>
-                <Services />
+                <Services category="sdad" />
+              </AdminOnly>
+            }
+          />
+          <Route
+            path="/taqeeb"
+            element={
+              <AdminOnly>
+                <Services category="taqeeb" />
+              </AdminOnly>
+            }
+          />
+          <Route
+            path="/fawateer"
+            element={
+              <AdminOnly>
+                <Services category="fawateer" />
               </AdminOnly>
             }
           />
