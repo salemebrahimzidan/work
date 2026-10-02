@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
-import { errorMessage, formatDate, money } from '../lib/format'
+import { errorMessage, formatDate, money, transactionStatus } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import type { TransactionDetail } from '../lib/types'
 import Modal from './Modal'
@@ -20,7 +21,6 @@ export default function TransactionsTable({
   onChanged,
 }: Props) {
   const { isAdmin } = useAuth()
-  const [editing, setEditing] = useState<TransactionDetail | null>(null)
   const [deleting, setDeleting] = useState<TransactionDetail | null>(null)
 
   return (
@@ -29,7 +29,6 @@ export default function TransactionsTable({
         <table>
           <thead>
             <tr>
-              <th>رقم المعاملة</th>
               {showCustomer && <th>العميل</th>}
               <th>المعاملة</th>
               <th>قيمة المعاملة</th>
@@ -43,38 +42,34 @@ export default function TransactionsTable({
           <tbody>
             {rows.map((row) => (
               <tr key={row.id}>
-                <td className="num muted" dir="ltr" title={row.id}>
-                  {row.id.slice(0, 8)}
-                </td>
                 {showCustomer && (
                   <td>
                     <Link to={`/customers/${row.customer_id}`}>{row.customer_name}</Link>
                   </td>
                 )}
-                <td>{row.service_name}</td>
+                <td>
+                  <Link to={`/transactions/${row.id}`}>{row.service_name}</Link>
+                </td>
                 <td className="num">
                   {row.transaction_value == null ? '—' : money(row.transaction_value)}
                 </td>
                 {isAdmin && <td className="num strong">{money(row.original_profit)}</td>}
                 <td>
-                  <span className="badge badge-locked">مقفل</span>
+                  <StatusCell row={row} />
                 </td>
                 <td className="muted">{row.note || '—'}</td>
                 <td className="num muted">{formatDate(row.created_at)}</td>
                 {isAdmin && (
                   <td>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <button type="button" className="btn btn-sm" onClick={() => setEditing(row)}>
-                        تعديل العمولة
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => setDeleting(row)}
-                      >
-                        حذف
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-icon"
+                      aria-label="حذف"
+                      title="حذف"
+                      onClick={() => setDeleting(row)}
+                    >
+                      <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
+                    </button>
                   </td>
                 )}
               </tr>
@@ -86,20 +81,7 @@ export default function TransactionsTable({
         )}
       </div>
 
-      <Modal title="تعديل عمولة المكتب" open={Boolean(editing)} onClose={() => setEditing(null)}>
-        {editing && (
-          <ProfitEditForm
-            transaction={editing}
-            onCancel={() => setEditing(null)}
-            onSaved={() => {
-              setEditing(null)
-              onChanged?.()
-            }}
-          />
-        )}
-      </Modal>
-
-      <Modal title="حذف المعاملة" open={Boolean(deleting)} onClose={() => setDeleting(null)}>
+      <Modal title="حذف المعاملة" compact hideHeader open={Boolean(deleting)} onClose={() => setDeleting(null)}>
         {deleting && (
           <DeleteConfirm
             transaction={deleting}
@@ -115,95 +97,15 @@ export default function TransactionsTable({
   )
 }
 
-function ProfitEditForm({
-  transaction,
-  onCancel,
-  onSaved,
-}: {
-  transaction: TransactionDetail
-  onCancel: () => void
-  onSaved: () => void
-}) {
-  const [profit, setProfit] = useState('')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault()
-    setError('')
-
-    const amount = Number(profit)
-    if (!Number.isFinite(amount) || amount < 0) {
-      setError('عمولة المكتب غير صحيحة')
-      return
-    }
-
-    setBusy(true)
-    const { error: saveError } = await supabase.rpc('admin_update_transaction_profit', {
-      p_transaction_id: transaction.id,
-      p_new_profit: amount.toFixed(2),
-    })
-    setBusy(false)
-
-    if (saveError) {
-      setError(errorMessage(saveError))
-      return
-    }
-    onSaved()
-  }
-
+function StatusCell({ row }: { row: TransactionDetail }) {
+  const status = transactionStatus(row.status)
   return (
-    <form onSubmit={handleSubmit}>
-      {error && <div className="alert alert-error">{error}</div>}
-
-      <div className="form-grid">
-        <div className="field">
-          <label htmlFor="edit-service">اسم المعاملة</label>
-          <input id="edit-service" value={transaction.service_name} readOnly disabled />
-        </div>
-        <div className="field">
-          <label htmlFor="edit-value">قيمة المعاملة</label>
-          <input
-            id="edit-value"
-            value={transaction.transaction_value == null ? '—' : money(transaction.transaction_value)}
-            readOnly
-            disabled
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="edit-current">عمولة المكتب الحالية</label>
-          <input
-            id="edit-current"
-            value={money(transaction.original_profit)}
-            readOnly
-            disabled
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="edit-new">عمولة المكتب الجديدة *</label>
-          <input
-            id="edit-new"
-            required
-            dir="ltr"
-            type="number"
-            min="0"
-            step="0.01"
-            inputMode="decimal"
-            value={profit}
-            onChange={(event) => setProfit(event.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="form-actions">
-        <button type="submit" className="btn btn-primary" disabled={busy}>
-          {busy ? 'جارٍ الحفظ…' : 'حفظ'}
-        </button>
-        <button type="button" className="btn btn-ghost" onClick={onCancel}>
-          إلغاء
-        </button>
-      </div>
-    </form>
+    <div className="status-cell">
+      <span className={status.badge}>{status.label}</span>
+      {row.status === 'cancelled' && row.cancel_reason && (
+        <span className="status-reason">{row.cancel_reason}</span>
+      )}
+    </div>
   )
 }
 
@@ -237,12 +139,12 @@ function DeleteConfirm({
   return (
     <div>
       {error && <div className="alert alert-error">{error}</div>}
-      <p>هل أنت متأكد من حذف هذه المعاملة؟</p>
-      <p className="muted">
+      <p className="confirm-copy">هل أنت متأكد من حذف هذه المعاملة؟</p>
+      <p className="confirm-detail muted">
         {transaction.service_name} — {money(transaction.original_profit)}
       </p>
       <div className="form-actions">
-        <button type="button" className="btn btn-primary" onClick={() => void confirmDelete()} disabled={busy}>
+        <button type="button" className="btn btn-danger" onClick={() => void confirmDelete()} disabled={busy}>
           {busy ? 'جارٍ الحذف…' : 'حذف'}
         </button>
         <button type="button" className="btn btn-ghost" onClick={onCancel}>

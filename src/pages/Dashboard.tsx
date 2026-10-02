@@ -49,7 +49,7 @@ export default function Dashboard() {
     <>
       <div className="page-head">
         <div>
-          <h1>الرئيسية</h1>
+          <h1>لوحة التحكم</h1>
           <p className="page-sub">ملخص العملاء والمعاملات والأرباح</p>
         </div>
         <button type="button" className="btn" onClick={() => void load()} disabled={loading}>

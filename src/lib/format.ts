@@ -33,6 +33,14 @@ export function count(value: number | null | undefined): string {
   return new Intl.NumberFormat('ar-SA', { numberingSystem: 'latn' }).format(value ?? 0)
 }
 
+export function transactionStatus(status: string | null | undefined) {
+  if (status === 'pending') return { label: 'قيد الانتظار', badge: 'badge badge-pending' }
+  if (status === 'in_progress') return { label: 'قيد التنفيذ', badge: 'badge badge-progress' }
+  if (status === 'completed') return { label: 'مكتملة', badge: 'badge badge-completed' }
+  if (status === 'cancelled') return { label: 'ملغاة', badge: 'badge badge-cancelled' }
+  return { label: 'مقفل', badge: 'badge badge-locked' }
+}
+
 export function formatDate(value: string | null | undefined): string {
   if (!value) return '—'
   return dateFormatter.format(new Date(value))

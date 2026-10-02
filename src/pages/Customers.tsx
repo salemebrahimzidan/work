@@ -2,21 +2,20 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { count, errorMessage, formatDate, money } from '../lib/format'
-import { useFilterValues } from '../lib/hooks'
+import { useAuth } from '../auth/AuthProvider'
 import type { CustomerSummary } from '../lib/types'
 import Modal from '../components/Modal'
 import CustomerForm from '../components/CustomerForm'
-import SelectField from '../components/SelectField'
 
 export default function Customers() {
-  const { nationalities, cities } = useFilterValues()
+  const { isAdmin } = useAuth()
   const [rows, setRows] = useState<CustomerSummary[]>([])
   const [search, setSearch] = useState('')
-  const [nationality, setNationality] = useState('')
-  const [city, setCity] = useState('')
+  const [iqama, setIqama] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [addOpen, setAddOpen] = useState(false)
+  const [openCounts, setOpenCounts] = useState<Record<string, number>>({})
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -29,14 +28,26 @@ export default function Customers() {
       const safe = term.replace(/[%,()]/g, ' ')
       query = query.or(`full_name.ilike.%${safe}%,mobile.ilike.%${safe}%`)
     }
-    if (nationality) query = query.eq('nationality', nationality)
-    if (city) query = query.eq('city', city)
+    const iqamaTerm = iqama.trim().replace(/[%,()]/g, '')
+    if (iqamaTerm) query = query.ilike('national_id', `%${iqamaTerm}%`)
 
-    const { data, error: queryError } = await query
-    if (queryError) setError(errorMessage(queryError))
-    else setRows((data ?? []) as CustomerSummary[])
+    const [customersRes, openRes] = await Promise.all([
+      query,
+      supabase.from('transactions').select('customer_id').in('status', ['pending', 'in_progress']),
+    ])
+
+    if (customersRes.error) setError(errorMessage(customersRes.error))
+    else setRows((customersRes.data ?? []) as CustomerSummary[])
+
+    const counts: Record<string, number> = {}
+    if (!openRes.error) {
+      for (const item of openRes.data ?? []) {
+        counts[item.customer_id] = (counts[item.customer_id] ?? 0) + 1
+      }
+    }
+    setOpenCounts(counts)
     setLoading(false)
-  }, [search, nationality, city])
+  }, [search, iqama])
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 250)
@@ -68,28 +79,14 @@ export default function Customers() {
           </div>
 
           <div className="field">
-            <label htmlFor="filter-nationality">الجنسية</label>
-            <SelectField
-              id="filter-nationality"
-              value={nationality}
-              onChange={setNationality}
-              options={[
-                { value: '', label: 'كل الجنسيات' },
-                ...nationalities.map((item) => ({ value: item, label: item })),
-              ]}
-            />
-          </div>
-
-          <div className="field">
-            <label htmlFor="filter-city">المدينة</label>
-            <SelectField
-              id="filter-city"
-              value={city}
-              onChange={setCity}
-              options={[
-                { value: '', label: 'كل المدن' },
-                ...cities.map((item) => ({ value: item, label: item })),
-              ]}
+            <label htmlFor="filter-iqama">رقم الإقامة</label>
+            <input
+              id="filter-iqama"
+              dir="ltr"
+              inputMode="numeric"
+              value={iqama}
+              placeholder="ابحث برقم الإقامة"
+              onChange={(e) => setIqama(e.target.value)}
             />
           </div>
 
@@ -100,8 +97,7 @@ export default function Customers() {
               className="btn btn-ghost"
               onClick={() => {
                 setSearch('')
-                setNationality('')
-                setCity('')
+                setIqama('')
               }}
             >
               مسح التصفية
@@ -118,29 +114,43 @@ export default function Customers() {
             <tr>
               <th>الاسم</th>
               <th>الجوال</th>
-              <th>الجنسية</th>
+              <th>رقم الإقامة</th>
               <th>المدينة</th>
               <th>عدد المعاملات</th>
-              <th>إجمالي عمولة المكتب</th>
+              {!isAdmin && <th>قيمة المعاملة</th>}
               <th>تاريخ الإضافة</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={row.id}>
+            {rows.map((row) => {
+              const openCount = openCounts[row.id] ?? 0
+              return (
+              <tr key={row.id} className={openCount > 0 ? 'row-open' : undefined}>
                 <td>
-                  <Link to={`/customers/${row.id}`}>{row.full_name}</Link>
+                  <span className="name-cell">
+                    <Link to={`/customers/${row.id}`}>{row.full_name}</Link>
+                    {openCount > 0 && (
+                      <span className="badge badge-pending">
+                        {openCount > 1 ? `${count(openCount)} غير مكتملة` : 'غير مكتملة'}
+                      </span>
+                    )}
+                  </span>
                 </td>
                 <td className="num" dir="ltr">
                   {row.mobile}
                 </td>
-                <td>{row.nationality || '—'}</td>
+                <td className="num" dir="ltr">
+                  {row.national_id || '—'}
+                </td>
                 <td>{row.city || '—'}</td>
                 <td className="num">{count(row.transactions_count)}</td>
-                <td className="num strong">{money(row.total_profit)}</td>
+                {!isAdmin && (
+                  <td className="num strong">{money(row.total_transaction_value)}</td>
+                )}
                 <td className="num muted">{formatDate(row.created_at)}</td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
         {rows.length === 0 && (

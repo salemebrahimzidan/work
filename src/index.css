@@ -91,6 +91,15 @@ a {
   gap: 4px;
 }
 
+.nav-group {
+  display: contents;
+}
+
+.nav-sub {
+  padding-inline-start: 22px;
+  font-size: 13px;
+}
+
 .nav-link {
   padding: 10px 12px;
   border-radius: 8px;
@@ -363,6 +372,21 @@ tbody tr:hover {
   background: #fafbfc;
 }
 
+tbody tr.row-open {
+  background: #fff8ee;
+}
+
+tbody tr.row-open:hover {
+  background: #fff1dc;
+}
+
+.name-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .num {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -585,6 +609,22 @@ textarea {
   font-size: 13px;
 }
 
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  color: var(--danger);
+}
+
+.btn-icon:hover {
+  background: #fdeceb;
+  filter: none;
+}
+
 /* ------------------------------------------------------------------ badges */
 .badge {
   display: inline-block;
@@ -609,6 +649,154 @@ textarea {
 .badge-locked {
   background: #f1f3f6;
   color: #5c6676;
+}
+
+.badge-pending {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.badge-progress {
+  background: #e8f1fb;
+  color: #1d4f91;
+}
+
+.badge-completed {
+  background: #e7f6ec;
+  color: #157347;
+}
+
+.badge-cancelled {
+  background: #fdeceb;
+  color: var(--danger);
+}
+
+.status-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.status-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.status-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 88px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.status-choice strong {
+  font-size: 15px;
+}
+
+.status-choice small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.status-choice.progress {
+  background: #e8f1fb;
+  border-color: #c5d9f2;
+  color: #1d4f91;
+}
+
+.status-choice.complete {
+  background: #e7f6ec;
+  border-color: #b7e4c7;
+  color: #157347;
+}
+
+.status-choice.cancel {
+  background: #fdeceb;
+  border-color: #f3c7c4;
+  color: var(--danger);
+}
+
+.status-choice.is-selected {
+  outline: 2px solid currentColor;
+}
+
+.status-choice:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.status-cancel-form {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.status-reason {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.status-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  width: 100%;
+}
+
+.status-actions .btn {
+  padding: 4px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.status-actions .span-2 {
+  grid-column: 1 / -1;
+}
+
+.status-progress {
+  background: #e8f1fb;
+  border-color: #c5d9f2;
+  color: #1d4f91;
+}
+
+.status-progress:hover {
+  background: #d7e6f8;
+}
+
+.status-complete {
+  background: #e7f6ec;
+  border-color: #b7e4c7;
+  color: #157347;
+}
+
+.status-complete:hover {
+  background: #d8f3e3;
+}
+
+.status-cancel {
+  background: #fdeceb;
+  border-color: #f3c7c4;
+  color: var(--danger);
+}
+
+.status-cancel:hover {
+  background: #fadad7;
 }
 
 .alert {
@@ -651,6 +839,10 @@ textarea {
   z-index: 50;
 }
 
+.modal-backdrop-center {
+  align-items: center;
+}
+
 .modal {
   background: var(--surface);
   border-radius: 16px;
@@ -658,6 +850,33 @@ textarea {
   max-width: 620px;
   box-shadow: 0 18px 40px rgba(16, 24, 32, 0.18);
   overflow: hidden;
+}
+
+.modal-compact {
+  max-width: 360px;
+}
+
+.modal-compact .modal-body {
+  padding: 22px 18px 16px;
+}
+
+.confirm-copy,
+.confirm-detail {
+  margin: 0;
+  text-align: center;
+}
+
+.confirm-copy {
+  font-weight: 700;
+}
+
+.confirm-detail {
+  margin-top: 6px;
+}
+
+.modal-compact .form-actions {
+  justify-content: center;
+  margin-top: 16px;
 }
 
 .modal-head {

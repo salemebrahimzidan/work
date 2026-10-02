@@ -19,17 +19,18 @@ export interface Customer {
   created_at: string
 }
 
-/** صف قائمة العملاء — لا يحتوي رقم الهوية */
 export interface CustomerSummary {
   id: string
   full_name: string
   mobile: string
   nationality: string | null
+  national_id: string | null
   city: string | null
   district: string | null
   created_at: string
   transactions_count: number
   total_profit: string
+  total_transaction_value: string
 }
 
 export interface ServicePrice {
@@ -53,6 +54,8 @@ export interface TransactionDetail {
   transaction_value: string | null
   note: string | null
   created_at: string
+  status?: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+  cancel_reason?: string | null
 }
 
 export interface DashboardStats {

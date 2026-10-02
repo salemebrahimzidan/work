@@ -81,7 +81,7 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
     }
 
     if (transactionValue === '' || commission === '') {
-      setError('سعر هذه الخدمة غير محدد في النظام. يضيفه المشرف من صفحة الخدمات.')
+      setError('سعر هذه الخدمة غير محدد في النظام. يضيفه المشرف من صفحة أسعار الخدمات.')
       return
     }
 
@@ -181,7 +181,7 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
           <p className="note-line" style={{ gridColumn: '1 / -1', margin: 0 }}>
             {fromSystem
               ? 'قيمة المعاملة وعمولة المكتب تُعبأ تلقائياً من أسعار الخدمة.'
-              : 'سعر هذه الخدمة غير محدد بعد. يضيفه المشرف من صفحة الخدمات.'}
+              : 'سعر هذه الخدمة غير محدد بعد. يضيفه المشرف من صفحة أسعار الخدمات.'}
           </p>
         )}
 
