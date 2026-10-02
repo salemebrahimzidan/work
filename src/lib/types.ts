@@ -42,7 +42,7 @@ export function asServiceCategory(value: string | null | undefined): ServiceCate
 
 export const serviceCategoryLabel: Record<ServiceCategory, string> = {
   sdad: 'سداد مدفوعات حكومية',
-  taqeeb: 'تعقيب',
+  taqeeb: 'خدمات وزاره التجاره',
   fawateer: 'سداد فواتير',
 }
 
