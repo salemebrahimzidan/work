@@ -121,7 +121,7 @@ export default function Customers() {
               <th>الجنسية</th>
               <th>المدينة</th>
               <th>عدد المعاملات</th>
-              <th>إجمالي الربح</th>
+              <th>إجمالي عمولة المكتب</th>
               <th>تاريخ الإضافة</th>
             </tr>
           </thead>

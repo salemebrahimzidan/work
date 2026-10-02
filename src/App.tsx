@@ -8,6 +8,7 @@ import Customers from './pages/Customers'
 import CustomerDetails from './pages/CustomerDetails'
 import Transactions from './pages/Transactions'
 import Profits from './pages/Profits'
+import Services from './pages/Services'
 
 function AdminOnly({ children }: { children: ReactNode }) {
   const { isAdmin } = useAuth()
@@ -71,6 +72,14 @@ function AuthenticatedApp() {
             element={
               <AdminOnly>
                 <Profits />
+              </AdminOnly>
+            }
+          />
+          <Route
+            path="/services"
+            element={
+              <AdminOnly>
+                <Services />
               </AdminOnly>
             }
           />

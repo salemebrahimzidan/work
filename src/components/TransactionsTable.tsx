@@ -32,7 +32,8 @@ export default function TransactionsTable({
               <th>رقم المعاملة</th>
               {showCustomer && <th>العميل</th>}
               <th>المعاملة</th>
-              {isAdmin && <th>الربح</th>}
+              <th>قيمة المعاملة</th>
+              {isAdmin && <th>عمولة المكتب</th>}
               <th>الحالة</th>
               <th>ملاحظة</th>
               <th>التاريخ</th>
@@ -51,6 +52,9 @@ export default function TransactionsTable({
                   </td>
                 )}
                 <td>{row.service_name}</td>
+                <td className="num">
+                  {row.transaction_value == null ? '—' : money(row.transaction_value)}
+                </td>
                 {isAdmin && <td className="num strong">{money(row.original_profit)}</td>}
                 <td>
                   <span className="badge badge-locked">مقفل</span>
@@ -61,7 +65,7 @@ export default function TransactionsTable({
                   <td>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       <button type="button" className="btn btn-sm" onClick={() => setEditing(row)}>
-                        تعديل الربح
+                        تعديل العمولة
                       </button>
                       <button
                         type="button"
@@ -82,7 +86,7 @@ export default function TransactionsTable({
         )}
       </div>
 
-      <Modal title="تعديل الربح" open={Boolean(editing)} onClose={() => setEditing(null)}>
+      <Modal title="تعديل عمولة المكتب" open={Boolean(editing)} onClose={() => setEditing(null)}>
         {editing && (
           <ProfitEditForm
             transaction={editing}
@@ -130,7 +134,7 @@ function ProfitEditForm({
 
     const amount = Number(profit)
     if (!Number.isFinite(amount) || amount < 0) {
-      setError('قيمة الربح غير صحيحة')
+      setError('عمولة المكتب غير صحيحة')
       return
     }
 
@@ -158,7 +162,16 @@ function ProfitEditForm({
           <input id="edit-service" value={transaction.service_name} readOnly disabled />
         </div>
         <div className="field">
-          <label htmlFor="edit-current">الربح الحالي</label>
+          <label htmlFor="edit-value">قيمة المعاملة</label>
+          <input
+            id="edit-value"
+            value={transaction.transaction_value == null ? '—' : money(transaction.transaction_value)}
+            readOnly
+            disabled
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="edit-current">عمولة المكتب الحالية</label>
           <input
             id="edit-current"
             value={money(transaction.original_profit)}
@@ -167,7 +180,7 @@ function ProfitEditForm({
           />
         </div>
         <div className="field">
-          <label htmlFor="edit-new">الربح الجديد *</label>
+          <label htmlFor="edit-new">عمولة المكتب الجديدة *</label>
           <input
             id="edit-new"
             required

@@ -159,7 +159,7 @@ export default function CustomerDetails() {
       {isAdmin && (
         <div className="stat-grid" style={{ marginTop: 16 }}>
           <div className="stat accent">
-            <div className="stat-label">إجمالي أرباح هذا العميل</div>
+            <div className="stat-label">إجمالي عمولة المكتب لهذا العميل</div>
             <div className="stat-value num">{money(total)}</div>
           </div>
         </div>

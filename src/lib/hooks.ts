@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
-import type { GroupCount } from './types'
+import type { GroupCount, ServicePrice } from './types'
 
 export interface CustomerOption {
   id: string
@@ -27,6 +27,32 @@ export function useCustomerOptions() {
   }, [])
 
   return options
+}
+
+/** أسعار الخدمات المسجلة في النظام. */
+export function useServicePrices() {
+  const [services, setServices] = useState<ServicePrice[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    supabase
+      .from('services')
+      .select('id, name, transaction_value, commission, manual, sort_order')
+      .order('sort_order')
+      .then(({ data, error: queryError }) => {
+        if (!active) return
+        if (queryError) setError(queryError.message)
+        else setServices((data ?? []) as ServicePrice[])
+        setLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  return { services, loading, error }
 }
 
 /** قيم الجنسيات والمدن الموجودة فعلياً، لاستخدامها في التصفية */
