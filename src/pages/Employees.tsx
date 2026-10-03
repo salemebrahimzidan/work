@@ -5,12 +5,14 @@ import { supabase } from '../lib/supabase'
 import { useCompany } from '../auth/CompanyProvider'
 import Modal from '../components/Modal'
 import EmployeeForm from '../components/EmployeeForm'
+import SelectField from '../components/SelectField'
 import ExpiryDate from '../components/ExpiryDate'
 import type { Branch, Employee, EmploymentStatus } from '../lib/types'
 import {
   draftToInput,
   employeeError,
   employeeToDraft,
+  EMPLOYMENT_STATUSES,
   employmentStatusLabel,
   emptyEmployeeDraft,
   readEmployee,
@@ -177,30 +179,28 @@ export default function Employees() {
           </div>
           <div className="field">
             <label htmlFor="employee-branch-filter">الفرع</label>
-            <select id="employee-branch-filter" value={branchFilter} onChange={(event) => setBranchFilter(event.target.value)}>
-              <option value="">كل الفروع</option>
-              <option value="none">بدون فرع</option>
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
-              ))}
-            </select>
+            <SelectField
+              id="employee-branch-filter"
+              value={branchFilter}
+              onChange={setBranchFilter}
+              options={[
+                { value: '', label: 'كل الفروع' },
+                { value: 'none', label: 'بدون فرع' },
+                ...branches.map((branch) => ({ value: branch.id, label: branch.name })),
+              ]}
+            />
           </div>
           <div className="field">
             <label htmlFor="employee-status-filter">حالة التوظيف</label>
-            <select
+            <SelectField
               id="employee-status-filter"
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as '' | EmploymentStatus)}
-            >
-              <option value="">كل الحالات</option>
-              {(Object.keys(employmentStatusLabel) as EmploymentStatus[]).map((status) => (
-                <option key={status} value={status}>
-                  {employmentStatusLabel[status]}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setStatusFilter(value as '' | EmploymentStatus)}
+              options={[
+                { value: '', label: 'كل الحالات' },
+                ...EMPLOYMENT_STATUSES.map((status) => ({ value: status, label: employmentStatusLabel[status] })),
+              ]}
+            />
           </div>
         </div>
       </div>

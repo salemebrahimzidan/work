@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react'
 import type { Branch } from '../lib/types'
+import SelectField from './SelectField'
 import {
   EMPLOYMENT_STATUSES,
   employmentStatusLabel,
@@ -63,15 +64,18 @@ export default function EmployeeForm({ draft, branches, saving, error, onChange,
         </div>
         <div className="field">
           <label htmlFor="employee-branch">الفرع</label>
-          <select id="employee-branch" value={draft.branch_id} onChange={(event) => set('branch_id', event.target.value)}>
-            <option value="">بدون فرع</option>
-            {choices.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.name}
-                {branch.is_active ? '' : ' (متوقف)'}
-              </option>
-            ))}
-          </select>
+          <SelectField
+            id="employee-branch"
+            value={draft.branch_id}
+            onChange={(branchId) => set('branch_id', branchId)}
+            options={[
+              { value: '', label: 'بدون فرع' },
+              ...choices.map((branch) => ({
+                value: branch.id,
+                label: `${branch.name}${branch.is_active ? '' : ' (متوقف)'}`,
+              })),
+            ]}
+          />
         </div>
         <div className="field">
           <label htmlFor="employee-title">المسمى الوظيفي</label>
@@ -79,17 +83,12 @@ export default function EmployeeForm({ draft, branches, saving, error, onChange,
         </div>
         <div className="field">
           <label htmlFor="employee-status">حالة التوظيف</label>
-          <select
+          <SelectField
             id="employee-status"
             value={draft.employment_status}
-            onChange={(event) => set('employment_status', event.target.value as EmployeeDraft['employment_status'])}
-          >
-            {EMPLOYMENT_STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {employmentStatusLabel[status]}
-              </option>
-            ))}
-          </select>
+            onChange={(status) => set('employment_status', status as EmployeeDraft['employment_status'])}
+            options={EMPLOYMENT_STATUSES.map((status) => ({ value: status, label: employmentStatusLabel[status] }))}
+          />
         </div>
         <div className="field">
           <label htmlFor="employee-hire">تاريخ التعيين</label>

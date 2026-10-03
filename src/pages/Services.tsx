@@ -19,6 +19,132 @@ function validAmount(value: string): boolean {
   return Number.isFinite(amount) && amount >= 0
 }
 
+function stepLink(value: string): string | null {
+  const trimmed = value.trim()
+  if (!trimmed || /\s/.test(trimmed)) return null
+  const withScheme = /^www\./i.test(trimmed) ? `https://${trimmed}` : /^(https?:)?\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+  try {
+    const url = new URL(withScheme)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null
+    if (!url.hostname.includes('.')) return null
+    return url.href
+  } catch {
+    return null
+  }
+}
+
+function StepsField({
+  id,
+  value,
+  onChange,
+}: {
+  id: string
+  value: string
+  onChange: (value: string) => void
+}) {
+  const areaRef = useRef<HTMLTextAreaElement>(null)
+  const selectionRef = useRef<{ start: number; end: number } | null>(null)
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [link, setLink] = useState('')
+  const [linkError, setLinkError] = useState('')
+
+  function rememberSelection() {
+    const area = areaRef.current
+    if (!area) return
+    selectionRef.current = { start: area.selectionStart, end: area.selectionEnd }
+  }
+
+  function insertLink() {
+    const href = stepLink(link)
+    if (!href) {
+      setLinkError('أدخل رابطاً صحيحاً، مثل https://example.com')
+      return
+    }
+    const area = areaRef.current
+    const saved = selectionRef.current
+    const start = saved?.start ?? value.length
+    const end = saved?.end ?? value.length
+    const before = value.slice(0, start)
+    const after = value.slice(end)
+    const atEnd = start === value.length && end === value.length
+    const padBefore = atEnd
+      ? value.length > 0 && !/\n$/.test(value)
+        ? '\n'
+        : ''
+      : before.length > 0 && !/\s$/.test(before)
+        ? ' '
+        : ''
+    const padAfter = !atEnd && after.length > 0 && !/^\s/.test(after) ? ' ' : ''
+    const next = `${before}${padBefore}${href}${padAfter}${after}`
+    onChange(next)
+    setLink('')
+    setLinkError('')
+    setLinkOpen(false)
+    const cursor = before.length + padBefore.length + href.length
+    selectionRef.current = { start: cursor, end: cursor }
+    requestAnimationFrame(() => {
+      area?.focus()
+      area?.setSelectionRange(cursor, cursor)
+    })
+  }
+
+  return (
+    <>
+      <textarea
+        ref={areaRef}
+        id={id}
+        rows={4}
+        placeholder="كل خطوة في سطر"
+        value={value}
+        onSelect={rememberSelection}
+        onBlur={rememberSelection}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      {linkOpen ? (
+        <div className="steps-link">
+          <input
+            dir="ltr"
+            type="url"
+            inputMode="url"
+            placeholder="https://example.com"
+            aria-label="رابط الخطوة"
+            value={link}
+            onChange={(event) => {
+              setLink(event.target.value)
+              setLinkError('')
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                insertLink()
+              }
+            }}
+          />
+          <button type="button" className="btn btn-primary btn-sm" onClick={insertLink}>
+            إدراج
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => {
+              setLinkOpen(false)
+              setLink('')
+              setLinkError('')
+            }}
+          >
+            إلغاء
+          </button>
+        </div>
+      ) : (
+        <button type="button" className="btn btn-ghost btn-sm steps-link-btn" onClick={() => setLinkOpen(true)}>
+          إضافة رابط
+        </button>
+      )}
+      {linkError && <p className="steps-link-error">{linkError}</p>}
+    </>
+  )
+}
+
 export default function Services({ category }: { category: ServiceCategory }) {
   const { canViewFinance, loading: companyLoading } = useCompany()
   const [rows, setRows] = useState<ServicePrice[]>([])
@@ -357,13 +483,7 @@ export default function Services({ category }: { category: ServiceCategory }) {
           )}
           <div className="field">
             <label htmlFor="service-steps">الخطوات</label>
-            <textarea
-              id="service-steps"
-              rows={4}
-              placeholder="كل خطوة في سطر"
-              value={newSteps}
-              onChange={(event) => setNewSteps(event.target.value)}
-            />
+            <StepsField id="service-steps" value={newSteps} onChange={setNewSteps} />
           </div>
           {!stepsReady && (
             <p className="muted">خطوات الخدمة غير جاهزة. شغّل ملف 0018_service_steps.sql في Supabase ثم حدّث الصفحة.</p>
@@ -428,12 +548,10 @@ export default function Services({ category }: { category: ServiceCategory }) {
               )}
               <div className="field">
                 <label htmlFor="edit-service-steps">الخطوات</label>
-                <textarea
+                <StepsField
                   id="edit-service-steps"
-                  rows={4}
-                  placeholder="كل خطوة في سطر"
                   value={drafts[editing.id]?.steps ?? ''}
-                  onChange={(event) => setDraft(editing.id, 'steps', event.target.value)}
+                  onChange={(value) => setDraft(editing.id, 'steps', value)}
                 />
               </div>
               {!stepsReady && (

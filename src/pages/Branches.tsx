@@ -5,6 +5,7 @@ import { errorMessage } from '../lib/format'
 import type { Branch } from '../lib/types'
 import { useCompany } from '../auth/CompanyProvider'
 import Modal from '../components/Modal'
+import SelectField from '../components/SelectField'
 
 interface Draft {
   id: string | null
@@ -271,14 +272,15 @@ export default function Branches() {
               </div>
               <div className="field">
                 <label htmlFor="branch-active">الحالة</label>
-                <select
+                <SelectField
                   id="branch-active"
                   value={draft.is_active ? 'active' : 'inactive'}
-                  onChange={(event) => setDraft({ ...draft, is_active: event.target.value === 'active' })}
-                >
-                  <option value="active">نشط</option>
-                  <option value="inactive">متوقف</option>
-                </select>
+                  onChange={(value) => setDraft({ ...draft, is_active: value === 'active' })}
+                  options={[
+                    { value: 'active', label: 'نشط' },
+                    { value: 'inactive', label: 'متوقف' },
+                  ]}
+                />
               </div>
             </div>
             <div className="form-actions">
