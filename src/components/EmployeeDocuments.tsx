@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
 import { useCompany } from '../auth/CompanyProvider'
 import Modal from './Modal'
+import SelectField from './SelectField'
 import ExpiryDate from './ExpiryDate'
 import { formatEmployeeDate } from '../lib/employees'
 import { notifyEmployeeActivity } from '../lib/activity'
@@ -201,21 +202,16 @@ export default function EmployeeDocuments({ employeeId }: { employeeId: string }
             <div className="form-grid">
               <div className="field">
                 <label htmlFor="document-type">نوع المستند</label>
-                <select
+                <SelectField
                   id="document-type"
                   value={draft.kind}
-                  onChange={(event) =>
+                  onChange={(kind) =>
                     setDraft((current) =>
-                      current ? { ...current, kind: event.target.value as DocumentDraft['kind'] } : current,
+                      current ? { ...current, kind: kind as DocumentDraft['kind'] } : current,
                     )
                   }
-                >
-                  {DOCUMENT_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {documentTypeLabel[type]}
-                    </option>
-                  ))}
-                </select>
+                  options={DOCUMENT_TYPES.map((type) => ({ value: type, label: documentTypeLabel[type] }))}
+                />
               </div>
               {draft.kind === 'other' && (
                 <div className="field">

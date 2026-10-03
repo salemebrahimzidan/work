@@ -232,8 +232,36 @@ a {
   margin-bottom: 8px;
 }
 
+.notify-panel .btn-ghost {
+  border-color: var(--border);
+  color: var(--text);
+  background: #fff;
+}
+
+.notify-panel .btn-ghost:hover {
+  background: #f3faf8;
+  color: var(--primary-dark);
+  filter: none;
+}
+
+.notify-head strong {
+  flex: none;
+}
+
 .notify-head .btn {
-  white-space: normal;
+  flex: none;
+  white-space: nowrap;
+  padding: 6px 12px;
+  border-color: #b7ddd8;
+  color: var(--primary-dark);
+  background: #e7f4f2;
+  font-weight: 700;
+}
+
+.notify-head .btn:hover {
+  background: #d7efe9;
+  border-color: var(--primary);
+  filter: none;
 }
 
 .notify-list {
@@ -1089,6 +1117,18 @@ input:disabled {
   border-color: var(--primary);
 }
 
+.select-trigger:disabled {
+  background: #f4f7f6;
+  cursor: not-allowed;
+}
+
+.select-trigger span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .select-chevron {
   flex: none;
   color: var(--muted);
@@ -1511,6 +1551,28 @@ button.badge-cancelled:hover {
   margin: 0;
   white-space: pre-wrap;
   line-height: 1.7;
+}
+
+.steps-link-btn {
+  align-self: flex-start;
+}
+
+.steps-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.steps-link input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.steps-link-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: 13px;
 }
 
 .service-steps a {

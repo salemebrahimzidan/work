@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useCompany } from '../auth/CompanyProvider'
+import SelectField from '../components/SelectField'
 import { supabase } from '../lib/supabase'
 import { downloadCsv, type CsvValue } from '../lib/csv'
 import { count, transactionStatus } from '../lib/format'
@@ -533,60 +534,52 @@ export default function Reports() {
             <div className="filters">
               <div className="field">
                 <label htmlFor="report-branch">الفرع</label>
-                <select id="report-branch" value={branchFilter} onChange={(event) => setBranchFilter(event.target.value)}>
-                  <option value="">كل الفروع</option>
-                  <option value="none">{NO_BRANCH}</option>
-                  {branches.map((branch) => (
-                    <option key={branch.id} value={branch.id}>
-                      {branch.name}
-                    </option>
-                  ))}
-                </select>
+                <SelectField
+                  id="report-branch"
+                  value={branchFilter}
+                  onChange={setBranchFilter}
+                  options={[
+                    { value: '', label: 'كل الفروع' },
+                    { value: 'none', label: NO_BRANCH },
+                    ...branches.map((branch) => ({ value: branch.id, label: branch.name })),
+                  ]}
+                />
               </div>
               <div className="field">
                 <label htmlFor="report-employment">حالة التوظيف</label>
-                <select
+                <SelectField
                   id="report-employment"
                   value={employmentFilter}
-                  onChange={(event) => setEmploymentFilter(event.target.value)}
-                >
-                  <option value="">كل الحالات</option>
-                  {EMPLOYMENT_STATUSES.map((status) => (
-                    <option key={status} value={status}>
-                      {employmentStatusLabel[status]}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setEmploymentFilter}
+                  options={[
+                    { value: '', label: 'كل الحالات' },
+                    ...EMPLOYMENT_STATUSES.map((status) => ({ value: status, label: employmentStatusLabel[status] })),
+                  ]}
+                />
               </div>
               <div className="field">
                 <label htmlFor="report-task-status">حالة المهمة</label>
-                <select
+                <SelectField
                   id="report-task-status"
                   value={taskStatusFilter}
-                  onChange={(event) => setTaskStatusFilter(event.target.value)}
-                >
-                  <option value="">كل الحالات</option>
-                  {TASK_STATUSES.map((status) => (
-                    <option key={status} value={status}>
-                      {taskStatusLabel[status]}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setTaskStatusFilter}
+                  options={[
+                    { value: '', label: 'كل الحالات' },
+                    ...TASK_STATUSES.map((status) => ({ value: status, label: taskStatusLabel[status] })),
+                  ]}
+                />
               </div>
               <div className="field">
                 <label htmlFor="report-task-priority">أولوية المهمة</label>
-                <select
+                <SelectField
                   id="report-task-priority"
                   value={taskPriorityFilter}
-                  onChange={(event) => setTaskPriorityFilter(event.target.value)}
-                >
-                  <option value="">كل الأولويات</option>
-                  {TASK_PRIORITIES.map((priority) => (
-                    <option key={priority} value={priority}>
-                      {taskPriorityLabel[priority]}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setTaskPriorityFilter}
+                  options={[
+                    { value: '', label: 'كل الأولويات' },
+                    ...TASK_PRIORITIES.map((priority) => ({ value: priority, label: taskPriorityLabel[priority] })),
+                  ]}
+                />
               </div>
             </div>
           </section>

@@ -11,6 +11,8 @@ interface Props {
   value: string
   onChange: (value: string) => void
   options: Option[]
+  disabled?: boolean
+  ariaLabel?: string
 }
 
 function useDismiss(
@@ -44,8 +46,12 @@ function useDismiss(
   }, [open, rootRef, menuRef])
 }
 
-function useAnchor(open: boolean, rootRef: RefObject<HTMLElement | null>) {
-  const [box, setBox] = useState({ top: 0, left: 0, width: 0 })
+function useAnchor(
+  open: boolean,
+  rootRef: RefObject<HTMLElement | null>,
+  menuRef: RefObject<HTMLElement | null>,
+) {
+  const [box, setBox] = useState({ top: 0, left: 0, width: 0, maxHeight: 240 })
 
   useEffect(() => {
     if (!open) return
@@ -53,17 +59,28 @@ function useAnchor(open: boolean, rootRef: RefObject<HTMLElement | null>) {
     function place() {
       const rect = rootRef.current?.getBoundingClientRect()
       if (!rect) return
-      setBox({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+      const gap = 4
+      const margin = 8
+      const spaceBelow = window.innerHeight - rect.bottom - gap - margin
+      const spaceAbove = rect.top - gap - margin
+      const openUp = spaceBelow < 180 && spaceAbove > spaceBelow
+      const maxHeight = Math.min(240, Math.max(80, openUp ? spaceAbove : spaceBelow))
+      const measured = menuRef.current?.offsetHeight ?? maxHeight
+      const height = Math.min(measured, maxHeight)
+      const top = openUp ? Math.max(margin, rect.top - gap - height) : rect.bottom + gap
+      setBox({ top, left: rect.left, width: rect.width, maxHeight })
     }
 
     place()
+    const frame = requestAnimationFrame(place)
     window.addEventListener('resize', place)
     window.addEventListener('scroll', place, true)
     return () => {
+      cancelAnimationFrame(frame)
       window.removeEventListener('resize', place)
       window.removeEventListener('scroll', place, true)
     }
-  }, [open, rootRef])
+  }, [open, rootRef, menuRef])
 
   return box
 }
@@ -88,7 +105,7 @@ export function ComboField({
   const rootRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLUListElement>(null)
   const listId = useId()
-  const box = useAnchor(open, rootRef)
+  const box = useAnchor(open, rootRef, menuRef)
   const text = draft ?? value
   const choices = onlyOptions || !value || options.includes(value) ? options : [value, ...options]
   const query = draft?.trim() ?? ''
@@ -132,7 +149,7 @@ export function ComboField({
             id={listId}
             role="listbox"
             ref={menuRef}
-            style={{ top: box.top, left: box.left, width: box.width }}
+            style={{ top: box.top, left: box.left, width: box.width, maxHeight: box.maxHeight }}
           >
             {visible.map((item) => (
               <li key={item} role="presentation">
@@ -155,12 +172,13 @@ export function ComboField({
   )
 }
 
-export default function SelectField({ id, value, onChange, options }: Props) {
+export default function SelectField({ id, value, onChange, options, disabled = false, ariaLabel }: Props) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLUListElement>(null)
   const listId = useId()
   const selected = options.find((option) => option.value === value) ?? options[0]
+  const box = useAnchor(open, rootRef, menuRef)
 
   useDismiss(open, () => setOpen(false), rootRef, menuRef)
 
@@ -170,9 +188,11 @@ export default function SelectField({ id, value, onChange, options }: Props) {
         id={id}
         type="button"
         className="select-trigger"
+        aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
+        disabled={disabled}
         onClick={() => setOpen((current) => !current)}
       >
         <span>{selected?.label ?? ''}</span>
@@ -187,29 +207,37 @@ export default function SelectField({ id, value, onChange, options }: Props) {
           />
         </svg>
       </button>
-      {open && (
-        <ul className="select-menu" id={listId} role="listbox" ref={menuRef}>
-          {options.map((option) => {
-            const active = option.value === value
-            return (
-              <li key={option.value || '__empty'} role="presentation">
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={active}
-                  className={active ? 'select-option active' : 'select-option'}
-                  onClick={() => {
-                    onChange(option.value)
-                    setOpen(false)
-                  }}
-                >
-                  {option.label}
-                </button>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+      {open &&
+        createPortal(
+          <ul
+            className="select-menu select-menu-fixed"
+            id={listId}
+            role="listbox"
+            ref={menuRef}
+            style={{ top: box.top, left: box.left, width: box.width, maxHeight: box.maxHeight }}
+          >
+            {options.map((option) => {
+              const active = option.value === value
+              return (
+                <li key={option.value || '__empty'} role="presentation">
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    className={active ? 'select-option active' : 'select-option'}
+                    onClick={() => {
+                      onChange(option.value)
+                      setOpen(false)
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>,
+          document.body,
+        )}
     </div>
   )
 }

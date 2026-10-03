@@ -7,6 +7,7 @@ import { useCompany } from '../auth/CompanyProvider'
 import { formatDateTime } from '../lib/format'
 import { formatEmployeeDate } from '../lib/employees'
 import Modal from './Modal'
+import SelectField from './SelectField'
 import { notifyEmployeeActivity } from '../lib/activity'
 import {
   ASSIGNEE_STATUSES,
@@ -372,77 +373,70 @@ export default function TaskWorkspace({
             </div>
             <div className="field">
               <label htmlFor="task-status-filter">الحالة</label>
-              <select
+              <SelectField
                 id="task-status-filter"
                 value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value as '' | TaskStatus)}
-              >
-                <option value="">كل الحالات</option>
-                {TASK_STATUSES.map((status) => (
-                  <option key={status} value={status}>
-                    {taskStatusLabel[status]}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => setStatusFilter(value as '' | TaskStatus)}
+                options={[
+                  { value: '', label: 'كل الحالات' },
+                  ...TASK_STATUSES.map((status) => ({ value: status, label: taskStatusLabel[status] })),
+                ]}
+              />
             </div>
             <div className="field">
               <label htmlFor="task-priority-filter">الأولوية</label>
-              <select
+              <SelectField
                 id="task-priority-filter"
                 value={priorityFilter}
-                onChange={(event) => setPriorityFilter(event.target.value as '' | TaskPriority)}
-              >
-                <option value="">كل الأولويات</option>
-                {TASK_PRIORITIES.map((priority) => (
-                  <option key={priority} value={priority}>
-                    {taskPriorityLabel[priority]}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => setPriorityFilter(value as '' | TaskPriority)}
+                options={[
+                  { value: '', label: 'كل الأولويات' },
+                  ...TASK_PRIORITIES.map((priority) => ({ value: priority, label: taskPriorityLabel[priority] })),
+                ]}
+              />
             </div>
             <div className="field">
               <label htmlFor="task-branch-filter">الفرع</label>
-              <select id="task-branch-filter" value={branchFilter} onChange={(event) => setBranchFilter(event.target.value)}>
-                <option value="">كل الفروع</option>
-                <option value="none">بدون فرع</option>
-                {branches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch.name}
-                  </option>
-                ))}
-              </select>
+              <SelectField
+                id="task-branch-filter"
+                value={branchFilter}
+                onChange={setBranchFilter}
+                options={[
+                  { value: '', label: 'كل الفروع' },
+                  { value: 'none', label: 'بدون فرع' },
+                  ...branches.map((branch) => ({ value: branch.id, label: branch.name })),
+                ]}
+              />
             </div>
             <div className="field">
               <label htmlFor="task-employee-filter">الموظف</label>
-              <select id="task-employee-filter" value={employeeFilter} onChange={(event) => setEmployeeFilter(event.target.value)}>
-                <option value="">كل الموظفين</option>
-                <option value="none">بدون موظف</option>
-                {employees.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.full_name}
-                  </option>
-                ))}
-              </select>
+              <SelectField
+                id="task-employee-filter"
+                value={employeeFilter}
+                onChange={setEmployeeFilter}
+                options={[
+                  { value: '', label: 'كل الموظفين' },
+                  { value: 'none', label: 'بدون موظف' },
+                  ...employees.map((item) => ({ value: item.id, label: item.full_name })),
+                ]}
+              />
             </div>
             <div className="field">
               <label htmlFor="task-assigned-filter">المسند إليه</label>
-              <select id="task-assigned-filter" value={assignedFilter} onChange={(event) => setAssignedFilter(event.target.value)}>
-                <option value="">الكل</option>
-                <option value="none">غير مسند</option>
-                {members.map((member) => (
-                  <option key={member.userId} value={member.userId}>
-                    {member.label}
-                  </option>
-                ))}
-                {[...names.entries()]
-                  .filter(([id]) => !memberIds.has(id) && rows.some((row) => row.assigned_to === id))
-                  .map(([id, label]) => (
-                    <option key={id} value={id}>
-                      {label}
-                    </option>
-                  ))}
-                {hasOtherAssignee && <option value="other">عضو آخر</option>}
-              </select>
+              <SelectField
+                id="task-assigned-filter"
+                value={assignedFilter}
+                onChange={setAssignedFilter}
+                options={[
+                  { value: '', label: 'الكل' },
+                  { value: 'none', label: 'غير مسند' },
+                  ...members.map((member) => ({ value: member.userId, label: member.label })),
+                  ...[...names.entries()]
+                    .filter(([id]) => !memberIds.has(id) && rows.some((row) => row.assigned_to === id))
+                    .map(([id, label]) => ({ value: id, label })),
+                  ...(hasOtherAssignee ? [{ value: 'other', label: 'عضو آخر' }] : []),
+                ]}
+              />
             </div>
           </div>
           <div className="quick-filters">
@@ -529,18 +523,16 @@ export default function TaskWorkspace({
                             </span>
                           )}
                           {role === 'user' && row.assigned_to === userId && row.status !== 'cancelled' && (
-                            <select
-                              aria-label="تغيير حالة المهمة"
+                            <SelectField
+                              ariaLabel="تغيير حالة المهمة"
                               value={row.status}
                               disabled={statusSavingId === row.id}
-                              onChange={(event) => void changeStatus(row, event.target.value as TaskStatus)}
-                            >
-                              {ASSIGNEE_STATUSES.map((status) => (
-                                <option key={status} value={status}>
-                                  {taskStatusLabel[status]}
-                                </option>
-                              ))}
-                            </select>
+                              onChange={(value) => void changeStatus(row, value as TaskStatus)}
+                              options={ASSIGNEE_STATUSES.map((status) => ({
+                                value: status,
+                                label: taskStatusLabel[status],
+                              }))}
+                            />
                           )}
                         </div>
                       </td>
@@ -609,18 +601,16 @@ export default function TaskWorkspace({
                   {role === 'user' && row.assigned_to === userId && row.status !== 'cancelled' && (
                     <div className="field">
                       <label htmlFor={`task-status-${row.id}`}>الحالة</label>
-                      <select
+                      <SelectField
                         id={`task-status-${row.id}`}
                         value={row.status}
                         disabled={statusSavingId === row.id}
-                        onChange={(event) => void changeStatus(row, event.target.value as TaskStatus)}
-                      >
-                        {ASSIGNEE_STATUSES.map((status) => (
-                          <option key={status} value={status}>
-                            {taskStatusLabel[status]}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(value) => void changeStatus(row, value as TaskStatus)}
+                        options={ASSIGNEE_STATUSES.map((status) => ({
+                          value: status,
+                          label: taskStatusLabel[status],
+                        }))}
+                      />
                     </div>
                   )}
                   <TaskActions
@@ -676,11 +666,10 @@ export default function TaskWorkspace({
               </div>
               <div className="field">
                 <label htmlFor="task-employee">الموظف</label>
-                <select
+                <SelectField
                   id="task-employee"
                   value={draft.employee_id}
-                  onChange={(event) => {
-                    const employeeId = event.target.value
+                  onChange={(employeeId) => {
                     setDraft((current) => {
                       if (!current) return current
                       const next = { ...current, employee_id: employeeId }
@@ -691,50 +680,44 @@ export default function TaskWorkspace({
                       return next
                     })
                   }}
-                >
-                  <option value="">بدون موظف</option>
-                  {employees.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.full_name}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { value: '', label: 'بدون موظف' },
+                    ...employees.map((item) => ({ value: item.id, label: item.full_name })),
+                  ]}
+                />
               </div>
               <div className="field">
                 <label htmlFor="task-branch">الفرع</label>
-                <select
+                <SelectField
                   id="task-branch"
                   value={draft.branch_id}
-                  onChange={(event) =>
-                    setDraft((current) => (current ? { ...current, branch_id: event.target.value } : current))
+                  onChange={(branchId) =>
+                    setDraft((current) => (current ? { ...current, branch_id: branchId } : current))
                   }
-                >
-                  <option value="">بدون فرع</option>
-                  {branchChoices.map((branch) => (
-                    <option key={branch.id} value={branch.id}>
-                      {branch.name}
-                      {branch.is_active ? '' : ' (متوقف)'}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { value: '', label: 'بدون فرع' },
+                    ...branchChoices.map((branch) => ({
+                      value: branch.id,
+                      label: `${branch.name}${branch.is_active ? '' : ' (متوقف)'}`,
+                    })),
+                  ]}
+                />
               </div>
               <div className="field">
                 <label htmlFor="task-priority">الأولوية</label>
-                <select
+                <SelectField
                   id="task-priority"
                   value={draft.priority}
-                  onChange={(event) =>
+                  onChange={(priority) =>
                     setDraft((current) =>
-                      current ? { ...current, priority: event.target.value as TaskPriority } : current,
+                      current ? { ...current, priority: priority as TaskPriority } : current,
                     )
                   }
-                >
-                  {TASK_PRIORITIES.map((priority) => (
-                    <option key={priority} value={priority}>
-                      {taskPriorityLabel[priority]}
-                    </option>
-                  ))}
-                </select>
+                  options={TASK_PRIORITIES.map((priority) => ({
+                    value: priority,
+                    label: taskPriorityLabel[priority],
+                  }))}
+                />
               </div>
               <div className="field">
                 <label htmlFor="task-due">تاريخ الاستحقاق</label>
@@ -750,40 +733,32 @@ export default function TaskWorkspace({
               </div>
               <div className="field">
                 <label htmlFor="task-assignee">المسند إليه</label>
-                <select
+                <SelectField
                   id="task-assignee"
                   value={draft.assigned_to}
-                  onChange={(event) =>
-                    setDraft((current) => (current ? { ...current, assigned_to: event.target.value } : current))
+                  onChange={(assignedTo) =>
+                    setDraft((current) => (current ? { ...current, assigned_to: assignedTo } : current))
                   }
-                >
-                  <option value="">غير مسند</option>
-                  {members.map((member) => (
-                    <option key={member.userId} value={member.userId}>
-                      {member.label}
-                    </option>
-                  ))}
-                  {draft.assigned_to && !memberIds.has(draft.assigned_to) && (
-                    <option value={draft.assigned_to}>{personLabel(draft.assigned_to)}</option>
-                  )}
-                </select>
+                  options={[
+                    { value: '', label: 'غير مسند' },
+                    ...members.map((member) => ({ value: member.userId, label: member.label })),
+                    ...(draft.assigned_to && !memberIds.has(draft.assigned_to)
+                      ? [{ value: draft.assigned_to, label: personLabel(draft.assigned_to) }]
+                      : []),
+                  ]}
+                />
               </div>
               {draft.id && (
                 <div className="field">
                   <label htmlFor="task-status">الحالة</label>
-                  <select
+                  <SelectField
                     id="task-status"
                     value={draft.status}
-                    onChange={(event) =>
-                      setDraft((current) => (current ? { ...current, status: event.target.value as TaskStatus } : current))
+                    onChange={(status) =>
+                      setDraft((current) => (current ? { ...current, status: status as TaskStatus } : current))
                     }
-                  >
-                    {TASK_STATUSES.map((status) => (
-                      <option key={status} value={status}>
-                        {taskStatusLabel[status]}
-                      </option>
-                    ))}
-                  </select>
+                    options={TASK_STATUSES.map((status) => ({ value: status, label: taskStatusLabel[status] }))}
+                  />
                 </div>
               )}
             </div>
