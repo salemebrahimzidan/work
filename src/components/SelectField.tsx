@@ -74,12 +74,14 @@ export function ComboField({
   onChange,
   options,
   required,
+  onlyOptions = false,
 }: {
   id?: string
   value: string
   onChange: (value: string) => void
   options: string[]
   required?: boolean
+  onlyOptions?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState<string | null>(null)
@@ -88,7 +90,7 @@ export function ComboField({
   const listId = useId()
   const box = useAnchor(open, rootRef)
   const text = draft ?? value
-  const choices = !value || options.includes(value) ? options : [value, ...options]
+  const choices = onlyOptions || !value || options.includes(value) ? options : [value, ...options]
   const query = draft?.trim() ?? ''
   const visible = query && query !== value ? choices.filter((item) => item.includes(query)) : choices
 
@@ -116,7 +118,7 @@ export function ComboField({
           setOpen(true)
         }}
         onBlur={() => {
-          if (draft !== null) onChange(draft)
+          if (draft !== null) onChange(draft.trim())
           setDraft(null)
         }}
         onFocus={() => setOpen(true)}
