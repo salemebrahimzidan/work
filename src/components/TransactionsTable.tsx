@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
-import { errorMessage, formatDate, money, transactionStatus } from '../lib/format'
+import { errorMessage, formatDate, linkedText, money, transactionStatus } from '../lib/format'
 import { useServicePrices } from '../lib/hooks'
 import { supabase } from '../lib/supabase'
 import type { TransactionDetail } from '../lib/types'
@@ -96,7 +96,7 @@ export default function TransactionsTable({
 
       <Modal title="الخطوات" subtitle={stepsRow?.service_name} center open={Boolean(stepsRow)} onClose={() => setStepsRow(null)}>
         {stepsText ? (
-          <p className="service-steps">{stepsText}</p>
+          <p className="service-steps">{linkedText(stepsText)}</p>
         ) : (
           <p className="muted">لم تُضف خطوات لهذه الخدمة بعد. يمكن للمشرف كتابتها من صفحة الخدمة.</p>
         )}

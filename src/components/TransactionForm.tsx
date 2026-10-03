@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { errorMessage } from '../lib/format'
+import { errorMessage, linkedText } from '../lib/format'
 import { useAuth } from '../auth/AuthProvider'
 import { useCustomerOptions, useServicePrices } from '../lib/hooks'
 import { serviceCategoryLabel, type ServiceCategory } from '../lib/types'
@@ -37,7 +37,8 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
 
   const serviceNames =
     serviceCategory === '' ? [] : services.filter((item) => item.category === serviceCategory).map((item) => item.name)
-  const selectedService = services.find((item) => item.name === serviceName) ?? null
+  const selectedService =
+    services.find((item) => item.name === serviceName && item.category === serviceCategory) ?? null
 
   function selectCategory(value: string) {
     setServiceCategory(value === 'sdad' || value === 'taqeeb' || value === 'fawateer' ? value : '')
@@ -47,12 +48,25 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
     setFromSystem(false)
     setMissingPrice(false)
     setStepsOpen(false)
+    setError('')
   }
 
   function selectService(name: string) {
-    setServiceName(name)
+    const trimmed = name.trim()
+    const service = services.find((item) => item.name === trimmed && item.category === serviceCategory)
+    const fromAnotherType = services.some((item) => item.name === trimmed && item.category !== serviceCategory)
     setStepsOpen(false)
-    const service = services.find((item) => item.name === name)
+    if (trimmed && serviceCategory && !serviceNames.includes(trimmed)) {
+      setServiceName('')
+      setTransactionValue('')
+      setCommission('')
+      setFromSystem(false)
+      setMissingPrice(false)
+      setError(fromAnotherType ? 'هذه المعاملة تتبع نوع خدمة آخر' : 'اختر خدمة من نوع الخدمة المحدد')
+      return
+    }
+    setError('')
+    setServiceName(trimmed)
     if (!service || service.manual) {
       if (fromSystem) {
         setTransactionValue('')
@@ -171,8 +185,10 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
           <div className="field full">
             <label htmlFor="service">اسم المعاملة / الخدمة *</label>
             <ComboField
+              key={serviceCategory}
               id="service"
               required
+              onlyOptions
               value={serviceName}
               onChange={selectService}
               options={serviceNames}
@@ -238,7 +254,7 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
 
       <Modal title="الخطوات" subtitle={serviceName} center raised open={stepsOpen} onClose={() => setStepsOpen(false)}>
         {selectedService?.steps?.trim() ? (
-          <p className="service-steps">{selectedService.steps}</p>
+          <p className="service-steps">{linkedText(selectedService.steps)}</p>
         ) : (
           <p className="muted">لم تُضف خطوات لهذه الخدمة بعد. يمكن للمشرف كتابتها من صفحة الخدمة.</p>
         )}

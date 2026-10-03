@@ -1,3 +1,6 @@
+import { createElement, type ReactNode } from 'react'
+import { ExternalLink } from 'lucide-react'
+
 const moneyFormatter = new Intl.NumberFormat('ar-SA', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
@@ -63,4 +66,39 @@ export function errorMessage(error: unknown): string {
   }
   if (/غير قابلة للتعديل/.test(message)) return message
   return message || 'حدث خطأ غير متوقع'
+}
+
+const STEP_LINK = /(?:https?:\/\/|www\.)[^\s<>"']+/gi
+
+/** Turns web addresses in step text into links that open in a new tab. */
+export function linkedText(text: string): ReactNode[] {
+  const nodes: ReactNode[] = []
+  let last = 0
+  for (const match of text.matchAll(STEP_LINK)) {
+    const raw = match[0]
+    const index = match.index ?? 0
+    const hrefBody = raw.replace(/[.,;:!?)]+$/, '')
+    const trailing = raw.slice(hrefBody.length)
+    if (index > last) nodes.push(text.slice(last, index))
+    const href = hrefBody.startsWith('www.') ? `https://${hrefBody}` : hrefBody
+    nodes.push(
+      createElement(
+        'a',
+        {
+          key: `${index}-${href}`,
+          className: 'service-step-link',
+          href,
+          target: '_blank',
+          rel: 'noopener noreferrer',
+          title: hrefBody,
+          'aria-label': 'فتح الرابط',
+        },
+        createElement(ExternalLink, { size: 14, strokeWidth: 2, 'aria-hidden': true }),
+      ),
+    )
+    if (trailing) nodes.push(trailing)
+    last = index + raw.length
+  }
+  if (last < text.length) nodes.push(text.slice(last))
+  return nodes
 }
