@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Modal from '../components/Modal'
+import CompanyActionCenter from '../components/CompanyActionCenter'
+import { useCompany } from '../auth/CompanyProvider'
+import { loadOfficeProfitTotals } from '../lib/finance'
 import { supabase } from '../lib/supabase'
 import { count, errorMessage, money } from '../lib/format'
 import { normalizeMobile } from '../lib/mobile'
@@ -14,26 +17,6 @@ const STATUSES = [
 ] as const
 
 type StatusKey = (typeof STATUSES)[number]['status']
-
-function riyadhToday() {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Riyadh',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date())
-}
-
-function riyadhMonthBounds() {
-  const [year, month] = riyadhToday().split('-')
-  const nextMonth = Number(month) === 12 ? 1 : Number(month) + 1
-  const nextYear = Number(month) === 12 ? Number(year) + 1 : Number(year)
-  const next = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`
-  return {
-    start: `${year}-${month}-01T00:00:00+03:00`,
-    end: `${next}T00:00:00+03:00`,
-  }
-}
 
 function monthLabel() {
   const monthName = new Intl.DateTimeFormat('ar-SA', {
@@ -53,6 +36,7 @@ interface StatusClient {
 }
 
 export default function Dashboard() {
+  const { canViewFinance, loading: companyLoading } = useCompany()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [statusCounts, setStatusCounts] = useState<Record<StatusKey, number>>({
     pending: 0,
@@ -68,20 +52,19 @@ export default function Dashboard() {
   const [clientsError, setClientsError] = useState('')
   const [clientsLoading, setClientsLoading] = useState(false)
   const [clientQuery, setClientQuery] = useState('')
+  const [companyReload, setCompanyReload] = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
-    const month = riyadhMonthBounds()
-    const [statsRes, profitRes, ...statusRes] = await Promise.all([
+    const [statsRes, ...statusRes] = await Promise.all([
       supabase.rpc('dashboard_stats'),
-      supabase.from('transactions').select('profit, created_at').eq('status', 'completed'),
       ...STATUSES.map((item) =>
         supabase.from('transactions').select('id', { count: 'exact', head: true }).eq('status', item.status),
       ),
     ])
 
-    const failure = statsRes.error || profitRes.error || statusRes.find((result) => result.error)?.error
+    const failure = statsRes.error || statusRes.find((result) => result.error)?.error
     if (statsRes.error) setError(errorMessage(statsRes.error))
     else setStats(statsRes.data as DashboardStats)
 
@@ -92,36 +75,29 @@ export default function Dashboard() {
       next[item.status] = statusRes[index].count ?? 0
     })
     setStatusCounts(next)
-    if (!profitRes.error) {
-      const today = riyadhToday()
-      const start = new Date(month.start).getTime()
-      const end = new Date(month.end).getTime()
-      let total = 0
-      let todayProfit = 0
-      let monthProfit = 0
-      for (const row of profitRes.data ?? []) {
-        const amount = Number(row.profit)
-        if (!Number.isFinite(amount)) continue
-        total += amount
-        const created = new Date(row.created_at)
-        const day = new Intl.DateTimeFormat('en-CA', {
-          timeZone: 'Asia/Riyadh',
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-        }).format(created)
-        if (day === today) todayProfit += amount
-        const time = created.getTime()
-        if (time >= start && time < end) monthProfit += amount
+
+    if (canViewFinance) {
+      try {
+        const totals = await loadOfficeProfitTotals()
+        setProfit({
+          total: Number(totals.total_profit) || 0,
+          today: Number(totals.profit_today) || 0,
+          month: Number(totals.profit_month) || 0,
+        })
+      } catch (profitError) {
+        setProfit({ total: 0, today: 0, month: 0 })
+        if (!statsRes.error) setError(errorMessage(profitError))
       }
-      setProfit({ total, today: todayProfit, month: monthProfit })
+    } else {
+      setProfit({ total: 0, today: 0, month: 0 })
     }
     setLoading(false)
-  }, [])
+  }, [canViewFinance])
 
   useEffect(() => {
+    if (companyLoading) return
     void load()
-  }, [load])
+  }, [companyLoading, load])
 
   const totalStatuses = STATUSES.reduce((sum, item) => sum + statusCounts[item.status], 0)
   const openItem = STATUSES.find((item) => item.status === openStatus)
@@ -181,7 +157,15 @@ export default function Dashboard() {
           <h1>لوحة التحكم</h1>
           <p className="page-sub">ملخص العملاء والمعاملات والأرباح</p>
         </div>
-        <button type="button" className="btn" onClick={() => void load()} disabled={loading}>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            setCompanyReload((value) => value + 1)
+            void load()
+          }}
+          disabled={loading}
+        >
           تحديث
         </button>
       </div>
@@ -203,16 +187,18 @@ export default function Dashboard() {
           value={count(stats?.total_transactions)}
           items={[{ label: 'اليوم', value: count(stats?.transactions_today) }]}
         />
-        <SummaryCard
-          tone="profit"
-          title="الأرباح"
-          caption="إجمالي الأرباح"
-          value={money(profit.total)}
-          items={[
-            { label: 'اليوم', value: money(profit.today) },
-            { label: monthLabel(), value: money(profit.month) },
-          ]}
-        />
+        {canViewFinance && (
+          <SummaryCard
+            tone="profit"
+            title="الأرباح"
+            caption="إجمالي الأرباح"
+            value={money(profit.total)}
+            items={[
+              { label: 'اليوم', value: money(profit.today) },
+              { label: monthLabel(), value: money(profit.month) },
+            ]}
+          />
+        )}
       </div>
 
       <section className="status-board" aria-label="حالات المعاملات">
@@ -244,6 +230,8 @@ export default function Dashboard() {
           )
         })}
       </section>
+
+      <CompanyActionCenter reloadToken={companyReload} />
 
       <Modal
         title={openItem?.label ?? 'الحالة'}

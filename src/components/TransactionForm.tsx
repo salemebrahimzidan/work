@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { errorMessage, linkedText } from '../lib/format'
 import { useAuth } from '../auth/AuthProvider'
+import { useCompany } from '../auth/CompanyProvider'
+import { loadServiceCommissionMap } from '../lib/finance'
 import { useCustomerOptions, useServicePrices } from '../lib/hooks'
 import { serviceCategoryLabel, type ServiceCategory } from '../lib/types'
 import Modal from './Modal'
@@ -21,8 +23,10 @@ interface Props {
 
 export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: Props) {
   const { session } = useAuth()
+  const { canViewFinance, loading: companyLoading } = useCompany()
   const customers = useCustomerOptions()
   const { services } = useServicePrices()
+  const [commissions, setCommissions] = useState<Record<string, string | null>>({})
   const [customerId, setCustomerId] = useState(fixedCustomerId ?? '')
   const [serviceCategory, setServiceCategory] = useState<ServiceCategory | ''>('')
   const [serviceName, setServiceName] = useState('')
@@ -35,10 +39,41 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
   const [busy, setBusy] = useState(false)
   const [stepsOpen, setStepsOpen] = useState(false)
 
+  useEffect(() => {
+    if (companyLoading) return
+    if (!canViewFinance) {
+      setCommissions({})
+      setCommission('')
+      return
+    }
+    let active = true
+    loadServiceCommissionMap()
+      .then((fees) => {
+        if (active) setCommissions(fees)
+      })
+      .catch((loadError: unknown) => {
+        if (active) setError(errorMessage(loadError))
+      })
+    return () => {
+      active = false
+    }
+  }, [canViewFinance, companyLoading])
+
   const serviceNames =
     serviceCategory === '' ? [] : services.filter((item) => item.category === serviceCategory).map((item) => item.name)
   const selectedService =
     services.find((item) => item.name === serviceName && item.category === serviceCategory) ?? null
+
+  useEffect(() => {
+    if (!canViewFinance || !selectedService || selectedService.manual) return
+    const value = amountField(selectedService.transaction_value)
+    const fee = amountField(commissions[selectedService.id])
+    if (value === '' || fee === '') return
+    setMissingPrice(false)
+    setFromSystem(true)
+    setTransactionValue(value)
+    setCommission(fee)
+  }, [canViewFinance, commissions, selectedService])
 
   function selectCategory(value: string) {
     setServiceCategory(value === 'sdad' || value === 'taqeeb' || value === 'fawateer' ? value : '')
@@ -77,8 +112,8 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
       return
     }
     const value = amountField(service.transaction_value)
-    const fee = amountField(service.commission)
-    if (value === '' || fee === '') {
+    const fee = canViewFinance ? amountField(commissions[service.id]) : ''
+    if (value === '' || (canViewFinance && fee === '')) {
       setFromSystem(false)
       setMissingPrice(true)
       setTransactionValue('')
@@ -88,7 +123,7 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
     setMissingPrice(false)
     setFromSystem(true)
     setTransactionValue(value)
-    setCommission(fee)
+    setCommission(canViewFinance ? fee : '')
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -108,29 +143,30 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
       return
     }
 
-    if (transactionValue === '' || commission === '') {
+    if (!selectedService || selectedService.manual || transactionValue === '' || (canViewFinance && commission === '')) {
       setError('سعر هذه الخدمة غير محدد في النظام. يضيفه المشرف من صفحة أسعار الخدمات.')
       return
     }
 
     const valueAmount = Number(transactionValue)
-    const commissionAmount = Number(commission)
     if (!Number.isFinite(valueAmount) || valueAmount < 0) {
       setError('قيمة المعاملة غير صحيحة')
       return
     }
-    if (!Number.isFinite(commissionAmount) || commissionAmount < 0) {
+    const commissionAmount = Number(commission)
+    if (canViewFinance && (!Number.isFinite(commissionAmount) || commissionAmount < 0)) {
       setError('عمولة المكتب غير صحيحة')
       return
     }
 
     setBusy(true)
     // Always INSERT a new row. The same service name must never update a previous transaction.
+    // Catalog profit is copied by the database. Manager/user do not send it.
     const { error: saveError } = await supabase.from('transactions').insert({
       customer_id: customerId,
       service_name: serviceName.trim(),
       transaction_value: valueAmount.toFixed(2),
-      profit: commissionAmount.toFixed(2),
+      ...(canViewFinance ? { profit: commissionAmount.toFixed(2) } : {}),
       note: note.trim() || null,
       created_by: session?.user.id,
     })
@@ -215,24 +251,28 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
           />
         </div>
 
-        <div className="field">
-          <label htmlFor="commission">عمولة المكتب (ر.س) *</label>
-          <input
-            id="commission"
-            disabled
-            dir="ltr"
-            type="number"
-            min="0"
-            step="0.01"
-            inputMode="decimal"
-            value={commission}
-          />
-        </div>
+        {canViewFinance && (
+          <div className="field">
+            <label htmlFor="commission">عمولة المكتب (ر.س) *</label>
+            <input
+              id="commission"
+              disabled
+              dir="ltr"
+              type="number"
+              min="0"
+              step="0.01"
+              inputMode="decimal"
+              value={commission}
+            />
+          </div>
+        )}
 
         {(fromSystem || missingPrice) && (
           <p className="note-line" style={{ gridColumn: '1 / -1', margin: 0 }}>
             {fromSystem
-              ? 'قيمة المعاملة وعمولة المكتب تُعبأ تلقائياً من أسعار الخدمة.'
+              ? canViewFinance
+                ? 'قيمة المعاملة وعمولة المكتب تُعبأ تلقائياً من أسعار الخدمة.'
+                : 'قيمة المعاملة تُعبأ تلقائياً من أسعار الخدمة.'
               : 'سعر هذه الخدمة غير محدد بعد. يضيفه المشرف من صفحة أسعار الخدمات.'}
           </p>
         )}

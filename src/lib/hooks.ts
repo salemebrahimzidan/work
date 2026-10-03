@@ -39,16 +39,16 @@ export function useServicePrices() {
     let active = true
 
     async function load() {
-      const columns = 'id, name, transaction_value, commission, manual, sort_order, category, steps'
+      const columns = 'id, name, transaction_value, manual, sort_order, category, steps'
       const primary = await supabase.from('services').select(columns).order('sort_order')
       // Older databases may not have category (0017) or steps (0018) yet.
-      let data: Array<Omit<ServicePrice, 'category' | 'steps'> & { category?: string | null; steps?: string | null }> | null =
+      let data: Array<Omit<ServicePrice, 'category' | 'steps' | 'commission'> & { category?: string | null; steps?: string | null }> | null =
         primary.data
       let queryError = primary.error
       if (queryError && /steps|schema cache/i.test(queryError.message)) {
         const withoutSteps = await supabase
           .from('services')
-          .select('id, name, transaction_value, commission, manual, sort_order, category')
+          .select('id, name, transaction_value, manual, sort_order, category')
           .order('sort_order')
         data = withoutSteps.data
         queryError = withoutSteps.error
@@ -56,7 +56,7 @@ export function useServicePrices() {
       if (queryError && /category|schema cache/i.test(queryError.message)) {
         const fallback = await supabase
           .from('services')
-          .select('id, name, transaction_value, commission, manual, sort_order')
+          .select('id, name, transaction_value, manual, sort_order')
           .order('sort_order')
         data = fallback.data
         queryError = fallback.error
@@ -67,6 +67,7 @@ export function useServicePrices() {
         setServices(
           (data ?? []).map((row) => ({
             ...row,
+            commission: null,
             category: asServiceCategory(row.category),
             steps: row.steps?.trim() ? row.steps : null,
           })),

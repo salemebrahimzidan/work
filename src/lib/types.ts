@@ -1,5 +1,44 @@
 export type Role = 'pending' | 'user' | 'admin'
 
+export type CompanyRole = 'owner' | 'admin' | 'manager' | 'user'
+
+export type CompanyStatus = 'active' | 'suspended'
+
+export interface CompanyInfo {
+  id: string
+  name: string
+  status: CompanyStatus
+}
+
+export interface Branch {
+  id: string
+  name: string
+  code: string | null
+  city: string | null
+  phone: string | null
+  is_active: boolean
+}
+
+export type EmploymentStatus = 'active' | 'inactive' | 'vacation' | 'terminated'
+
+export interface Employee {
+  id: string
+  employee_number: string | null
+  full_name: string
+  nationality: string | null
+  mobile: string | null
+  email: string | null
+  branch_id: string | null
+  job_title: string | null
+  employment_status: EmploymentStatus
+  hire_date: string | null
+  iqama_number: string | null
+  iqama_expiry_date: string | null
+  passport_number: string | null
+  passport_expiry_date: string | null
+  notes: string | null
+}
+
 export interface Profile {
   id: string
   full_name: string | null
@@ -29,7 +68,6 @@ export interface CustomerSummary {
   district: string | null
   created_at: string
   transactions_count: number
-  total_profit: string
   total_transaction_value: string
 }
 
@@ -65,7 +103,7 @@ export interface TransactionDetail {
   nationality: string | null
   city: string | null
   service_name: string
-  original_profit: string
+  original_profit?: string
   transaction_value: string | null
   note: string | null
   created_at: string
@@ -79,9 +117,6 @@ export interface DashboardStats {
   total_transactions: number
   transactions_today: number
   transactions_month: number
-  total_profit: string
-  profit_today: string
-  profit_month: string
 }
 
 export interface ProfitReport {

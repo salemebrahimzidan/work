@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { useAuth } from '../auth/AuthProvider'
+import { useCompany } from '../auth/CompanyProvider'
+import { TRANSACTION_DETAIL_COLUMNS, loadOfficeProfitMap } from '../lib/finance'
 import { errorMessage, formatDate, money, transactionStatus } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import type { TransactionDetail } from '../lib/types'
 
 export default function TransactionDetails() {
   const { id = '' } = useParams()
-  const { isAdmin } = useAuth()
+  const { canViewFinance, loading: companyLoading } = useCompany()
   const [row, setRow] = useState<TransactionDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -17,18 +18,30 @@ export default function TransactionDetails() {
     setError('')
     const { data, error: queryError } = await supabase
       .from('transaction_details')
-      .select('*')
+      .select(TRANSACTION_DETAIL_COLUMNS)
       .eq('id', id)
       .maybeSingle()
 
     if (queryError) setError(errorMessage(queryError))
-    else setRow((data as TransactionDetail | null) ?? null)
+    else {
+      const detail = (data as TransactionDetail | null) ?? null
+      if (detail && canViewFinance) {
+        try {
+          const profits = await loadOfficeProfitMap()
+          detail.original_profit = profits[detail.id]
+        } catch (profitError) {
+          setError(errorMessage(profitError))
+        }
+      }
+      setRow(detail)
+    }
     setLoading(false)
-  }, [id])
+  }, [id, canViewFinance])
 
   useEffect(() => {
+    if (companyLoading) return
     void load()
-  }, [load])
+  }, [companyLoading, load])
 
   if (loading) {
     return <div className="empty">جارٍ التحميل…</div>
@@ -74,7 +87,9 @@ export default function TransactionDetails() {
             label="قيمة المعاملة"
             value={row.transaction_value == null ? '—' : money(row.transaction_value)}
           />
-          {isAdmin && <Item label="عمولة المكتب" value={money(row.original_profit)} />}
+          {canViewFinance && row.original_profit != null && (
+            <Item label="عمولة المكتب" value={money(row.original_profit)} />
+          )}
           <Item label="التاريخ" value={formatDate(row.created_at)} />
           <Item label="المدينة" value={row.city || '—'} />
           <Item label="الجنسية" value={row.nationality || '—'} />

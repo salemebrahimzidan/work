@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Trash2 } from 'lucide-react'
+import { useCompany } from '../auth/CompanyProvider'
+import { loadServiceCommissionMap } from '../lib/finance'
 import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/format'
 import { asServiceCategory, serviceCategoryLabel, type ServiceCategory, type ServicePrice } from '../lib/types'
@@ -18,6 +20,7 @@ function validAmount(value: string): boolean {
 }
 
 export default function Services({ category }: { category: ServiceCategory }) {
+  const { canViewFinance, loading: companyLoading } = useCompany()
   const [rows, setRows] = useState<ServicePrice[]>([])
   const [drafts, setDrafts] = useState<
     Record<string, { name: string; transaction_value: string; commission: string; steps: string }>
@@ -40,11 +43,12 @@ export default function Services({ category }: { category: ServiceCategory }) {
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
-    const columns = 'id, name, transaction_value, commission, manual, sort_order, category, steps'
+    const columns = 'id, name, transaction_value, manual, sort_order, category, steps'
     const primary = await supabase.from('services').select(columns).order('sort_order')
     // Older databases may not have category (0017) or steps (0018) yet.
-    let data: Array<Omit<ServicePrice, 'category' | 'steps'> & { category?: string | null; steps?: string | null }> | null =
-      primary.data
+    let data: Array<
+      Omit<ServicePrice, 'category' | 'steps' | 'commission'> & { category?: string | null; steps?: string | null }
+    > | null = primary.data
     let queryError = primary.error
     let ready = true
     let stepsColumn = true
@@ -52,7 +56,7 @@ export default function Services({ category }: { category: ServiceCategory }) {
       stepsColumn = false
       const withoutSteps = await supabase
         .from('services')
-        .select('id, name, transaction_value, commission, manual, sort_order, category')
+        .select('id, name, transaction_value, manual, sort_order, category')
         .order('sort_order')
       data = withoutSteps.data
       queryError = withoutSteps.error
@@ -62,7 +66,7 @@ export default function Services({ category }: { category: ServiceCategory }) {
       stepsColumn = false
       const fallback = await supabase
         .from('services')
-        .select('id, name, transaction_value, commission, manual, sort_order')
+        .select('id, name, transaction_value, manual, sort_order')
         .order('sort_order')
       data = fallback.data
       queryError = fallback.error
@@ -81,9 +85,18 @@ export default function Services({ category }: { category: ServiceCategory }) {
     } else {
       const list: ServicePrice[] = (data ?? []).map((row) => ({
         ...row,
+        commission: null,
         category: asServiceCategory(row.category),
         steps: row.steps?.trim() ? row.steps : null,
       }))
+      if (canViewFinance) {
+        try {
+          const fees = await loadServiceCommissionMap()
+          for (const row of list) row.commission = fees[row.id] ?? null
+        } catch (feeError) {
+          setError(errorMessage(feeError))
+        }
+      }
       setRows(list)
       setDrafts(
         Object.fromEntries(
@@ -100,11 +113,12 @@ export default function Services({ category }: { category: ServiceCategory }) {
       )
     }
     setLoading(false)
-  }, [])
+  }, [canViewFinance])
 
   useEffect(() => {
+    if (companyLoading) return
     void load()
-  }, [load])
+  }, [companyLoading, load])
 
   function setDraft(id: string, key: 'name' | 'transaction_value' | 'commission' | 'steps', value: string) {
     setDrafts((current) => ({
@@ -124,8 +138,13 @@ export default function Services({ category }: { category: ServiceCategory }) {
       setError('هذه الخدمة موجودة بالفعل')
       return
     }
-    if (!row.manual && (!draft || !validAmount(draft.transaction_value) || !validAmount(draft.commission))) {
-      setError('أدخل قيمة المعاملة وعمولة المكتب')
+    if (
+      !row.manual &&
+      (!draft ||
+        !validAmount(draft.transaction_value) ||
+        (canViewFinance && !validAmount(draft.commission)))
+    ) {
+      setError(canViewFinance ? 'أدخل قيمة المعاملة وعمولة المكتب' : 'أدخل قيمة المعاملة')
       return
     }
 
@@ -140,7 +159,7 @@ export default function Services({ category }: { category: ServiceCategory }) {
           : {
               name,
               transaction_value: Number(draft.transaction_value).toFixed(2),
-              commission: Number(draft.commission).toFixed(2),
+              ...(canViewFinance ? { commission: Number(draft.commission).toFixed(2) } : {}),
             }),
         ...(stepsReady ? { steps } : {}),
       })
@@ -181,8 +200,8 @@ export default function Services({ category }: { category: ServiceCategory }) {
       setError('أدخل اسم الخدمة')
       return
     }
-    if (!validAmount(newValue) || !validAmount(newCommission)) {
-      setError('أدخل قيمة المعاملة وعمولة المكتب')
+    if (!validAmount(newValue) || (canViewFinance && !validAmount(newCommission))) {
+      setError(canViewFinance ? 'أدخل قيمة المعاملة وعمولة المكتب' : 'أدخل قيمة المعاملة')
       return
     }
     if (rows.some((row) => row.name.trim() === name)) {
@@ -202,7 +221,7 @@ export default function Services({ category }: { category: ServiceCategory }) {
     const { error: insertError } = await supabase.from('services').insert({
       name,
       transaction_value: valueAmount.toFixed(2),
-      commission: commissionAmount.toFixed(2),
+      ...(canViewFinance ? { commission: commissionAmount.toFixed(2) } : {}),
       manual: false,
       sort_order: sortOrder,
       ...(categoryReady ? { category } : {}),
@@ -284,6 +303,7 @@ export default function Services({ category }: { category: ServiceCategory }) {
       <PriceSection
         rows={rows.filter((row) => row.category === category)}
         loading={loading && rows.length === 0}
+        showCommission={canViewFinance}
         onEdit={openEdit}
         onDelete={setDeleting}
       />
@@ -319,20 +339,22 @@ export default function Services({ category }: { category: ServiceCategory }) {
               onChange={(event) => setNewValue(event.target.value)}
             />
           </div>
-          <div className="field">
-            <label htmlFor="service-commission">عمولة المكتب (ر.س)</label>
-            <input
-              id="service-commission"
-              dir="ltr"
-              type="number"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
-              placeholder="0"
-              value={newCommission}
-              onChange={(event) => setNewCommission(event.target.value)}
-            />
-          </div>
+          {canViewFinance && (
+            <div className="field">
+              <label htmlFor="service-commission">عمولة المكتب (ر.س)</label>
+              <input
+                id="service-commission"
+                dir="ltr"
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                placeholder="0"
+                value={newCommission}
+                onChange={(event) => setNewCommission(event.target.value)}
+              />
+            </div>
+          )}
           <div className="field">
             <label htmlFor="service-steps">الخطوات</label>
             <textarea
@@ -387,19 +409,21 @@ export default function Services({ category }: { category: ServiceCategory }) {
                       onChange={(event) => setDraft(editing.id, 'transaction_value', event.target.value)}
                     />
                   </div>
-                  <div className="field">
-                    <label htmlFor="edit-service-commission">عمولة المكتب (ر.س)</label>
-                    <input
-                      id="edit-service-commission"
-                      dir="ltr"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      inputMode="decimal"
-                      value={drafts[editing.id]?.commission ?? ''}
-                      onChange={(event) => setDraft(editing.id, 'commission', event.target.value)}
-                    />
-                  </div>
+                  {canViewFinance && (
+                    <div className="field">
+                      <label htmlFor="edit-service-commission">عمولة المكتب (ر.س)</label>
+                      <input
+                        id="edit-service-commission"
+                        dir="ltr"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        inputMode="decimal"
+                        value={drafts[editing.id]?.commission ?? ''}
+                        onChange={(event) => setDraft(editing.id, 'commission', event.target.value)}
+                      />
+                    </div>
+                  )}
                 </>
               )}
               <div className="field">
@@ -463,11 +487,13 @@ const PAGE_SIZE = 12
 function PriceSection({
   rows,
   loading,
+  showCommission,
   onEdit,
   onDelete,
 }: {
   rows: ServicePrice[]
   loading: boolean
+  showCommission: boolean
   onEdit: (row: ServicePrice) => void
   onDelete: (row: ServicePrice) => void
 }) {
@@ -495,11 +521,11 @@ function PriceSection({
         ) : rows.length === 0 ? (
           <div className="empty">لا توجد خدمات</div>
         ) : (
-          <div className="price-sheet">
+          <div className={showCommission ? 'price-sheet' : 'price-sheet price-sheet-safe'}>
             <div className="price-head">
               <span>الخدمة</span>
               <span>قيمة المعاملة (ر.س)</span>
-              <span>عمولة المكتب (ر.س)</span>
+              {showCommission && <span>عمولة المكتب (ر.س)</span>}
               <span />
             </div>
             {visibleRows.map((row) => (
@@ -510,7 +536,9 @@ function PriceSection({
                 ) : (
                   <>
                     <span className="price-value num">{amountField(row.transaction_value) || '—'}</span>
-                    <span className="price-value num">{amountField(row.commission) || '—'}</span>
+                    {showCommission && (
+                      <span className="price-value num">{amountField(row.commission) || '—'}</span>
+                    )}
                   </>
                 )}
                 <div className="price-actions">

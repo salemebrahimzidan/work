@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
+import { useCompany } from '../auth/CompanyProvider'
 import { errorMessage, formatDate, linkedText, money, transactionStatus } from '../lib/format'
 import { useServicePrices } from '../lib/hooks'
 import { supabase } from '../lib/supabase'
@@ -22,6 +23,7 @@ export default function TransactionsTable({
   onChanged,
 }: Props) {
   const { isAdmin } = useAuth()
+  const { canViewFinance } = useCompany()
   const { services } = useServicePrices()
   const [deleting, setDeleting] = useState<TransactionDetail | null>(null)
   const [reasonRow, setReasonRow] = useState<TransactionDetail | null>(null)
@@ -37,7 +39,7 @@ export default function TransactionsTable({
               {showCustomer && <th>العميل</th>}
               <th>المعاملة</th>
               <th>قيمة المعاملة</th>
-              {isAdmin && <th>عمولة المكتب</th>}
+              {canViewFinance && <th>عمولة المكتب</th>}
               <th>الحالة</th>
               <th>ملاحظة</th>
               <th>التاريخ</th>
@@ -58,7 +60,9 @@ export default function TransactionsTable({
                 <td className="num">
                   {row.transaction_value == null ? '—' : money(row.transaction_value)}
                 </td>
-                {isAdmin && <td className="num strong">{money(row.original_profit)}</td>}
+                {canViewFinance && (
+                  <td className="num strong">{row.original_profit == null ? '—' : money(row.original_profit)}</td>
+                )}
                 <td>
                   <StatusCell
                     row={row}
@@ -165,6 +169,7 @@ function DeleteConfirm({
   onCancel: () => void
   onDeleted: () => void
 }) {
+  const { canViewFinance } = useCompany()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -188,7 +193,10 @@ function DeleteConfirm({
       {error && <div className="alert alert-error">{error}</div>}
       <p className="confirm-copy">هل أنت متأكد من حذف هذه المعاملة؟</p>
       <p className="confirm-detail">
-        {transaction.service_name} — {money(transaction.original_profit)}
+        {transaction.service_name}
+        {canViewFinance && transaction.original_profit != null
+          ? ` — ${money(transaction.original_profit)}`
+          : ''}
       </p>
       <div className="confirm-actions">
         <button type="button" className="btn confirm-delete" onClick={() => void confirmDelete()} disabled={busy}>

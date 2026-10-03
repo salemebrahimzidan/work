@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { CUSTOMER_SUMMARY_COLUMNS } from '../lib/finance'
 import { supabase } from '../lib/supabase'
 import { count, errorMessage, formatDate, money } from '../lib/format'
 import { useAuth } from '../auth/AuthProvider'
@@ -21,7 +22,10 @@ export default function Customers() {
     setLoading(true)
     setError('')
 
-    let query = supabase.from('customer_summary').select('*').order('created_at', { ascending: false })
+    let query = supabase
+      .from('customer_summary')
+      .select(CUSTOMER_SUMMARY_COLUMNS)
+      .order('created_at', { ascending: false })
 
     const term = search.trim()
     if (term) {

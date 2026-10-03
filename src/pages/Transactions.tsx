@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { TRANSACTION_DETAIL_COLUMNS, loadOfficeProfitMap } from '../lib/finance'
 import { supabase } from '../lib/supabase'
 import { count, errorMessage, money } from '../lib/format'
 import { useAuth } from '../auth/AuthProvider'
+import { useCompany } from '../auth/CompanyProvider'
 import type { TransactionDetail } from '../lib/types'
 import Modal from '../components/Modal'
 import TransactionForm from '../components/TransactionForm'
@@ -11,6 +13,7 @@ import SelectField from '../components/SelectField'
 
 export default function Transactions() {
   const { isAdmin } = useAuth()
+  const { canViewFinance, loading: companyLoading } = useCompany()
   const [rows, setRows] = useState<TransactionDetail[]>([])
   const [search, setSearch] = useState('')
   const [params, setParams] = useSearchParams()
@@ -34,7 +37,7 @@ export default function Transactions() {
 
     let query = supabase
       .from('transaction_details')
-      .select('*')
+      .select(TRANSACTION_DETAIL_COLUMNS)
       .order('created_at', { ascending: false })
       .limit(500)
 
@@ -48,16 +51,31 @@ export default function Transactions() {
     const { data, error: queryError } = await query
     if (id !== requestId.current) return
     if (queryError) setError(errorMessage(queryError))
-    else setRows((data ?? []) as TransactionDetail[])
+    else {
+      const list = (data ?? []) as TransactionDetail[]
+      if (canViewFinance) {
+        try {
+          const profits = await loadOfficeProfitMap()
+          if (id !== requestId.current) return
+          setRows(list.map((row) => ({ ...row, original_profit: profits[row.id] })))
+        } catch (profitError) {
+          setRows(list)
+          setError(errorMessage(profitError))
+        }
+      } else {
+        setRows(list)
+      }
+    }
     setLoading(false)
-  }, [search, status])
+  }, [search, status, canViewFinance])
 
   useEffect(() => {
+    if (companyLoading) return
     const timer = setTimeout(() => void load(), 250)
     return () => clearTimeout(timer)
-  }, [load])
+  }, [companyLoading, load])
 
-  const total = rows.reduce((sum, row) => sum + Number(row.original_profit), 0)
+  const total = rows.reduce((sum, row) => sum + (Number(row.original_profit) || 0), 0)
 
   return (
     <>
@@ -66,7 +84,7 @@ export default function Transactions() {
           <h1>المعاملات</h1>
           <p className="page-sub">
             {count(rows.length)} معاملة
-            {isAdmin && <> — إجمالي عمولة المكتب في النتائج: {money(total)}</>}
+            {canViewFinance && <> — إجمالي عمولة المكتب في النتائج: {money(total)}</>}
           </p>
         </div>
         <button type="button" className="btn btn-primary" onClick={() => setAddOpen(true)}>

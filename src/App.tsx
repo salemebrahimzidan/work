@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
+import { CompanyProvider, useCompany } from './auth/CompanyProvider'
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -10,10 +11,23 @@ import Transactions from './pages/Transactions'
 import TransactionDetails from './pages/TransactionDetails'
 import Profits from './pages/Profits'
 import Services from './pages/Services'
+import CompanySettings from './pages/CompanySettings'
+import Branches from './pages/Branches'
+import Employees from './pages/Employees'
+import EmployeeDetails from './pages/EmployeeDetails'
+import Tasks from './pages/Tasks'
+import Reports from './pages/Reports'
 
 function AdminOnly({ children }: { children: ReactNode }) {
   const { isAdmin } = useAuth()
   if (!isAdmin) return <Navigate to="/customers" replace />
+  return children
+}
+
+function FinanceOnly({ children }: { children: ReactNode }) {
+  const { canViewFinance, loading } = useCompany()
+  if (loading) return <div className="empty">جارٍ التحميل…</div>
+  if (!canViewFinance) return <Navigate to="/customers" replace />
   return children
 }
 
@@ -54,8 +68,9 @@ function AuthenticatedApp() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
+    <CompanyProvider userId={session.user.id}>
+      <BrowserRouter>
+        <Routes>
         <Route element={<Layout />}>
           <Route
             path="/"
@@ -72,9 +87,9 @@ function AuthenticatedApp() {
           <Route
             path="/profits"
             element={
-              <AdminOnly>
+              <FinanceOnly>
                 <Profits />
-              </AdminOnly>
+              </FinanceOnly>
             }
           />
           <Route
@@ -101,10 +116,17 @@ function AuthenticatedApp() {
               </AdminOnly>
             }
           />
+          <Route path="/company" element={<CompanySettings />} />
+          <Route path="/branches" element={<Branches />} />
+          <Route path="/employees" element={<Employees />} />
+          <Route path="/employees/:id" element={<EmployeeDetails />} />
+          <Route path="/tasks" element={<Tasks />} />
+          <Route path="/reports" element={<Reports />} />
           <Route path="*" element={<DefaultRedirect />} />
         </Route>
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </CompanyProvider>
   )
 }
 

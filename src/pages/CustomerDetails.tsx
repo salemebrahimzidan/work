@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
+import { useCompany } from '../auth/CompanyProvider'
+import { TRANSACTION_DETAIL_COLUMNS, loadOfficeProfitMap } from '../lib/finance'
 import { supabase } from '../lib/supabase'
 import { count, errorMessage, formatDate } from '../lib/format'
 import type { Customer, TransactionDetail } from '../lib/types'
@@ -13,6 +15,7 @@ export default function CustomerDetails() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
+  const { canViewFinance, loading: companyLoading } = useCompany()
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [rows, setRows] = useState<TransactionDetail[]>([])
   const [loading, setLoading] = useState(true)
@@ -30,7 +33,7 @@ export default function CustomerDetails() {
       supabase.from('customers').select('*').eq('id', id).maybeSingle(),
       supabase
         .from('transaction_details')
-        .select('*')
+        .select(TRANSACTION_DETAIL_COLUMNS)
         .eq('customer_id', id)
         .order('created_at', { ascending: false }),
     ])
@@ -39,14 +42,26 @@ export default function CustomerDetails() {
     if (failure) setError(errorMessage(failure))
     else {
       setCustomer((customerRes.data as Customer | null) ?? null)
-      setRows((txRes.data ?? []) as TransactionDetail[])
+      const list = (txRes.data ?? []) as TransactionDetail[]
+      if (canViewFinance) {
+        try {
+          const profits = await loadOfficeProfitMap()
+          setRows(list.map((row) => ({ ...row, original_profit: profits[row.id] })))
+        } catch (profitError) {
+          setRows(list)
+          setError(errorMessage(profitError))
+        }
+      } else {
+        setRows(list)
+      }
     }
     setLoading(false)
-  }, [id])
+  }, [id, canViewFinance])
 
   useEffect(() => {
+    if (companyLoading) return
     void load()
-  }, [load])
+  }, [companyLoading, load])
 
   async function confirmDelete() {
     if (!customer) return

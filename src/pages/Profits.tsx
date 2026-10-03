@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { TRANSACTION_DETAIL_COLUMNS, loadOfficeProfitMap, loadOfficeProfitTotals } from '../lib/finance'
 import { supabase } from '../lib/supabase'
 import { count, errorMessage, money } from '../lib/format'
 import { useCustomerOptions, useFilterValues } from '../lib/hooks'
@@ -40,43 +41,22 @@ export default function Profits() {
   const [city, setCity] = useState('')
 
   useEffect(() => {
-    supabase
-      .from('transactions')
-      .select('profit, created_at')
-      .eq('status', 'completed')
-      .then(({ data, error: queryError }) => {
-        if (queryError) {
-          setError(errorMessage(queryError))
-          return
-        }
-        const today = todayISO()
-        const monthStart = new Date(`${monthStartISO()}T00:00:00+03:00`).getTime()
-        const [year, month] = today.split('-').map(Number)
-        const nextMonth = month === 12 ? 1 : month + 1
-        const nextYear = month === 12 ? year + 1 : year
-        const monthEnd = new Date(
-          `${nextYear}-${String(nextMonth).padStart(2, '0')}-01T00:00:00+03:00`,
-        ).getTime()
-        let total = 0
-        let todayProfit = 0
-        let monthProfit = 0
-        for (const row of data ?? []) {
-          const amount = Number(row.profit)
-          if (!Number.isFinite(amount)) continue
-          total += amount
-          const created = new Date(row.created_at)
-          const day = new Intl.DateTimeFormat('en-CA', {
-            timeZone: RIYADH_TZ,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-          }).format(created)
-          if (day === today) todayProfit += amount
-          const time = created.getTime()
-          if (time >= monthStart && time < monthEnd) monthProfit += amount
-        }
-        setProfit({ total, today: todayProfit, month: monthProfit })
+    let active = true
+    loadOfficeProfitTotals()
+      .then((totals) => {
+        if (!active) return
+        setProfit({
+          total: Number(totals.total_profit) || 0,
+          today: Number(totals.profit_today) || 0,
+          month: Number(totals.profit_month) || 0,
+        })
       })
+      .catch((queryError: unknown) => {
+        if (active) setError(errorMessage(queryError))
+      })
+    return () => {
+      active = false
+    }
   }, [])
 
   const load = useCallback(async () => {
@@ -85,7 +65,7 @@ export default function Profits() {
 
     let query = supabase
       .from('transaction_details')
-      .select('*')
+      .select(TRANSACTION_DETAIL_COLUMNS)
       .eq('status', 'completed')
       .order('created_at', { ascending: false })
       .limit(500)
@@ -96,16 +76,24 @@ export default function Profits() {
     if (nationality) query = query.eq('nationality', nationality)
     if (city) query = query.eq('city', city)
 
-    const { data, error: queryError } = await query
-    if (queryError) setError(errorMessage(queryError))
+    const [{ data, error: queryError }, reportRes, profits] = await Promise.all([
+      query,
+      supabase.rpc('profit_report', {
+        p_from: from || null,
+        p_to: to || null,
+        p_customer_id: customerId || null,
+        p_nationality: nationality || null,
+        p_city: city || null,
+      }),
+      loadOfficeProfitMap(),
+    ])
+    if (queryError || reportRes.error) setError(errorMessage(queryError || reportRes.error))
     else {
-      const list = (data ?? []) as TransactionDetail[]
-      const total = list.reduce((sum, row) => sum + Number(row.original_profit), 0)
-      const summary: ProfitReport = {
-        customers_count: new Set(list.map((row) => row.customer_id)).size,
-        transactions_count: list.length,
-        total_profit: total.toFixed(2),
-      }
+      const summary = reportRes.data as ProfitReport
+      const list = ((data ?? []) as TransactionDetail[]).map((row) => ({
+        ...row,
+        original_profit: profits[row.id],
+      }))
       setReport(summary)
       setRows(list)
     }
