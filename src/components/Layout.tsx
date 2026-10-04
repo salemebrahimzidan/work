@@ -3,7 +3,7 @@ import { ChevronDown } from 'lucide-react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { useCompany } from '../auth/CompanyProvider'
-import { serviceCategories, serviceCategoryLabel, serviceCategoryPath } from '../lib/types'
+import { billerCategories, billerCategoryLabel, serviceCategories, serviceCategoryLabel, serviceCategoryPath } from '../lib/types'
 
 const links = [
   { to: '/', label: 'لوحة التحكم', admin: true },
@@ -14,9 +14,16 @@ const links = [
   { to: '/transactions?status=completed', label: 'مكتملة', admin: false },
 ]
 
-const paymentLinks = [
+const paymentLinks: NavItem[] = [
   { to: serviceCategoryPath.sdad, label: serviceCategoryLabel.sdad },
-  { to: serviceCategoryPath.fawateer, label: serviceCategoryLabel.fawateer },
+  {
+    to: serviceCategoryPath.fawateer,
+    label: serviceCategoryLabel.fawateer,
+    children: billerCategories.map((key) => ({
+      to: `${serviceCategoryPath.fawateer}/${key}`,
+      label: billerCategoryLabel[key],
+    })),
+  },
 ]
 
 const serviceLinks = serviceCategories
@@ -113,6 +120,12 @@ export default function Layout() {
   )
 }
 
+interface NavItem {
+  to: string
+  label: string
+  children?: { to: string; label: string }[]
+}
+
 function NavMenu({
   id,
   label,
@@ -122,7 +135,7 @@ function NavMenu({
 }: {
   id: string
   label: string
-  items: { to: string; label: string }[]
+  items: NavItem[]
   pathname: string
   linkClass: (active: boolean) => string
 }) {
@@ -147,16 +160,76 @@ function NavMenu({
       </button>
       {open && (
         <div className="nav-menu-items" id={id}>
-          {items.map((link) => {
-            const current = isPathActive(pathname, link.to)
+          {items.map((link) =>
+            link.children ? (
+              <NestedNav key={link.to} item={link} pathname={pathname} linkClass={linkClass} />
+            ) : (
+              <LeafLink key={link.to} item={link} pathname={pathname} linkClass={linkClass} />
+            ),
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function LeafLink({
+  item,
+  pathname,
+  linkClass,
+}: {
+  item: NavItem
+  pathname: string
+  linkClass: (active: boolean) => string
+}) {
+  const current = isPathActive(pathname, item.to)
+  return (
+    <Link to={item.to} className={`${linkClass(current)} nav-sub`} aria-current={current ? 'page' : undefined}>
+      {item.label}
+    </Link>
+  )
+}
+
+function NestedNav({
+  item,
+  pathname,
+  linkClass,
+}: {
+  item: NavItem
+  pathname: string
+  linkClass: (active: boolean) => string
+}) {
+  const children = item.children ?? []
+  const childActive = children.some((child) => pathname === child.to)
+  const [open, setOpen] = useState(childActive)
+
+  useEffect(() => {
+    if (childActive) setOpen(true)
+  }, [childActive])
+
+  return (
+    <div className={open ? 'nav-menu is-open' : 'nav-menu'}>
+      <button
+        type="button"
+        className={`${linkClass(childActive && !open)} nav-sub`}
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        {item.label}
+        <ChevronDown className="nav-caret" size={16} strokeWidth={2} aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="nav-menu-items">
+          {children.map((child) => {
+            const current = pathname === child.to
             return (
               <Link
-                key={link.to}
-                to={link.to}
-                className={`${linkClass(current)} nav-sub`}
+                key={child.to}
+                to={child.to}
+                className={`${linkClass(current)} nav-sub nav-sub-2`}
                 aria-current={current ? 'page' : undefined}
               >
-                {link.label}
+                {child.label}
               </Link>
             )
           })}

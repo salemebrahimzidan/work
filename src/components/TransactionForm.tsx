@@ -5,7 +5,16 @@ import { useAuth } from '../auth/AuthProvider'
 import { useCompany } from '../auth/CompanyProvider'
 import { loadServiceCommissionMap, loadServiceQuoteCommissionMap } from '../lib/finance'
 import { useCustomerOptions, useServicePrices } from '../lib/hooks'
-import { isServiceCategory, serviceCategories, serviceCategoryLabel, type ServiceCategory } from '../lib/types'
+import {
+  billerCategories,
+  billerCategoryLabel,
+  isBillerCategory,
+  isServiceCategory,
+  serviceCategories,
+  serviceCategoryLabel,
+  type BillerCategory,
+  type ServiceCategory,
+} from '../lib/types'
 import Modal from './Modal'
 import SelectField, { ComboField } from './SelectField'
 
@@ -13,6 +22,23 @@ function amountField(value: string | number | null | undefined): string {
   if (value == null || value === '') return ''
   const amount = Number(value)
   return Number.isFinite(amount) ? String(amount) : ''
+}
+
+const fawateerPaymentLimit = 4000
+
+function fawateerCommission(value: string): string | null {
+  const trimmed = value.trim()
+  if (trimmed === '') return null
+  const amount = Number(trimmed)
+  if (!Number.isFinite(amount) || amount < 0 || amount > fawateerPaymentLimit) return null
+  if (amount <= 300) return '5.00'
+  if (amount <= 1000) return '10.00'
+  if (amount <= 1500) return '15.00'
+  if (amount <= 2000) return '20.00'
+  if (amount <= 2500) return '25.00'
+  if (amount <= 3000) return '30.00'
+  if (amount <= 3500) return '35.00'
+  return '40.00'
 }
 
 interface Props {
@@ -29,6 +55,7 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
   const [commissions, setCommissions] = useState<Record<string, string | null>>({})
   const [customerId, setCustomerId] = useState(fixedCustomerId ?? '')
   const [serviceCategory, setServiceCategory] = useState<ServiceCategory | ''>('')
+  const [billerCategory, setBillerCategory] = useState<BillerCategory | ''>('')
   const [serviceName, setServiceName] = useState('')
   const [transactionValue, setTransactionValue] = useState('')
   const [commission, setCommission] = useState('')
@@ -60,13 +87,27 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
     }
   }, [canViewFinance, canViewServiceQuoteCommission, companyLoading])
 
-  const serviceNames =
-    serviceCategory === '' ? [] : services.filter((item) => item.category === serviceCategory).map((item) => item.name)
+  const serviceReady = serviceCategory !== '' && (serviceCategory !== 'fawateer' || billerCategory !== '')
+  const serviceNames = serviceReady
+    ? services
+        .filter(
+          (item) =>
+            item.category === serviceCategory &&
+            (serviceCategory !== 'fawateer' || item.biller_category === billerCategory),
+        )
+        .map((item) => item.name)
+    : []
   const selectedService =
-    services.find((item) => item.name === serviceName && item.category === serviceCategory) ?? null
+    services.find(
+      (item) =>
+        item.name === serviceName &&
+        item.category === serviceCategory &&
+        (serviceCategory !== 'fawateer' || item.biller_category === billerCategory),
+    ) ?? null
 
   useEffect(() => {
     if (!canViewServiceQuoteCommission || !selectedService || selectedService.manual) return
+    if (selectedService.category === 'fawateer') return
     const value = amountField(selectedService.transaction_value)
     const fee = amountField(commissions[selectedService.id])
     if (value === '' || (canViewFinance && fee === '')) return
@@ -76,8 +117,7 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
     setCommission(fee)
   }, [canViewFinance, canViewServiceQuoteCommission, commissions, selectedService])
 
-  function selectCategory(value: string) {
-    setServiceCategory(isServiceCategory(value) ? value : '')
+  function clearService() {
     setServiceName('')
     setTransactionValue('')
     setCommission('')
@@ -87,10 +127,31 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
     setError('')
   }
 
+  function selectCategory(value: string) {
+    setServiceCategory(isServiceCategory(value) ? value : '')
+    setBillerCategory('')
+    clearService()
+  }
+
+  function selectBiller(value: string) {
+    setBillerCategory(isBillerCategory(value) ? value : '')
+    clearService()
+  }
+
   function selectService(name: string) {
     const trimmed = name.trim()
-    const service = services.find((item) => item.name === trimmed && item.category === serviceCategory)
+    const service = services.find(
+      (item) =>
+        item.name === trimmed &&
+        item.category === serviceCategory &&
+        (serviceCategory !== 'fawateer' || item.biller_category === billerCategory),
+    )
     const fromAnotherType = services.some((item) => item.name === trimmed && item.category !== serviceCategory)
+    const fromAnotherBiller =
+      serviceCategory === 'fawateer' &&
+      services.some(
+        (item) => item.name === trimmed && item.category === 'fawateer' && item.biller_category !== billerCategory,
+      )
     setStepsOpen(false)
     if (trimmed && serviceCategory && !serviceNames.includes(trimmed)) {
       setServiceName('')
@@ -98,11 +159,26 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
       setCommission('')
       setFromSystem(false)
       setMissingPrice(false)
-      setError(fromAnotherType ? 'هذه المعاملة تتبع نوع خدمة آخر' : 'اختر خدمة من نوع الخدمة المحدد')
+      setError(
+        fromAnotherBiller
+          ? 'هذه الخدمة تتبع فئة مفوتر أخرى'
+          : fromAnotherType
+            ? 'هذه المعاملة تتبع نوع خدمة آخر'
+            : serviceCategory === 'fawateer'
+              ? 'اختر خدمة من فئة المفوتر المحددة'
+              : 'اختر خدمة من نوع الخدمة المحدد',
+      )
       return
     }
     setError('')
     setServiceName(trimmed)
+    if (service?.category === 'fawateer') {
+      setFromSystem(false)
+      setMissingPrice(false)
+      setTransactionValue('')
+      setCommission('')
+      return
+    }
     if (!service || service.manual) {
       if (fromSystem) {
         setTransactionValue('')
@@ -139,35 +215,68 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
       setError('اختر نوع الخدمة')
       return
     }
+    if (serviceCategory === 'fawateer' && !billerCategory) {
+      setError('اختر فئة المفوتر')
+      return
+    }
     if (!serviceName.trim()) {
       setError('اختر الخدمة')
       return
     }
 
-    if (!selectedService || selectedService.manual || transactionValue === '' || (canViewFinance && commission === '')) {
-      setError('سعر هذه الخدمة غير محدد في النظام. يضيفه المشرف من صفحة أسعار الخدمات.')
-      return
-    }
+    const isFawateer = serviceCategory === 'fawateer'
+    let valueAmount = Number.NaN
+    let commissionAmount = Number.NaN
 
-    const valueAmount = Number(transactionValue)
-    if (!Number.isFinite(valueAmount) || valueAmount < 0) {
-      setError('قيمة المعاملة غير صحيحة')
-      return
-    }
-    const commissionAmount = Number(commission)
-    if (canViewFinance && (!Number.isFinite(commissionAmount) || commissionAmount < 0)) {
-      setError('عمولة المكتب غير صحيحة')
-      return
+    if (isFawateer) {
+      if (!selectedService) {
+        setError('اختر الخدمة')
+        return
+      }
+      const payment = transactionValue.trim()
+      if (payment === '') {
+        setError('أدخل قيمة السداد')
+        return
+      }
+      valueAmount = Number(payment)
+      if (!Number.isFinite(valueAmount) || valueAmount < 0) {
+        setError('قيمة السداد غير صحيحة')
+        return
+      }
+      if (valueAmount === 0) {
+        setError('قيمة السداد يجب أن تكون أكبر من صفر')
+        return
+      }
+      if (valueAmount > fawateerPaymentLimit) {
+        setError('لا توجد عمولة محددة لقيمة سداد أكبر من 4000 ر.س')
+        return
+      }
+    } else {
+      if (!selectedService || selectedService.manual || transactionValue === '' || (canViewFinance && commission === '')) {
+        setError('سعر هذه الخدمة غير محدد في النظام. يضيفه المشرف من صفحة أسعار الخدمات.')
+        return
+      }
+
+      valueAmount = Number(transactionValue)
+      if (!Number.isFinite(valueAmount) || valueAmount < 0) {
+        setError('قيمة المعاملة غير صحيحة')
+        return
+      }
+      commissionAmount = Number(commission)
+      if (canViewFinance && (!Number.isFinite(commissionAmount) || commissionAmount < 0)) {
+        setError('عمولة المكتب غير صحيحة')
+        return
+      }
     }
 
     setBusy(true)
     // Always INSERT a new row. The same service name must never update a previous transaction.
-    // Catalog profit is copied by the database. Manager/user do not send it.
+    // Catalog profit is copied by the database. Fawateer profit is calculated there from قيمة السداد.
     const { error: saveError } = await supabase.from('transactions').insert({
       customer_id: customerId,
       service_name: serviceName.trim(),
       transaction_value: valueAmount.toFixed(2),
-      ...(canViewFinance ? { profit: commissionAmount.toFixed(2) } : {}),
+      ...(canViewFinance && !isFawateer ? { profit: commissionAmount.toFixed(2) } : {}),
       note: note.trim() || null,
       created_by: session?.user.id,
     })
@@ -219,11 +328,29 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
           />
         </div>
 
-        {serviceCategory && (
+        {serviceCategory === 'fawateer' && (
+          <div className="field full">
+            <label htmlFor="biller-category">فئة المفوتر *</label>
+            <SelectField
+              id="biller-category"
+              value={billerCategory}
+              onChange={selectBiller}
+              options={[
+                { value: '', label: '— اختر فئة المفوتر —' },
+                ...billerCategories.map((key) => ({
+                  value: key,
+                  label: billerCategoryLabel[key],
+                })),
+              ]}
+            />
+          </div>
+        )}
+
+        {serviceReady && (
           <div className="field full">
             <label htmlFor="service">اسم المعاملة / الخدمة *</label>
             <ComboField
-              key={serviceCategory}
+              key={`${serviceCategory}:${billerCategory}`}
               id="service"
               required
               onlyOptions
@@ -240,16 +367,26 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
         )}
 
         <div className="field">
-          <label htmlFor="transaction_value">قيمة المعاملة (ر.س) *</label>
+          <label htmlFor="transaction_value">
+            {serviceCategory === 'fawateer' ? 'قيمة السداد (ر.س) *' : 'قيمة المعاملة (ر.س) *'}
+          </label>
           <input
             id="transaction_value"
-            disabled
+            disabled={serviceCategory !== 'fawateer'}
+            readOnly={serviceCategory !== 'fawateer'}
             dir="ltr"
             type="number"
             min="0"
             step="0.01"
             inputMode="decimal"
             value={transactionValue}
+            onChange={(event) => {
+              if (serviceCategory !== 'fawateer') return
+              const value = event.target.value
+              setTransactionValue(value)
+              setCommission(fawateerCommission(value) ?? '')
+              setError('')
+            }}
           />
         </div>
 
@@ -262,12 +399,24 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
               readOnly
               dir="ltr"
               type="text"
-              value={commission || '—'}
+              value={
+                serviceCategory === 'fawateer'
+                  ? fawateerCommission(transactionValue)
+                    ? `${fawateerCommission(transactionValue)} ر.س`
+                    : '—'
+                  : commission || '—'
+              }
             />
           </div>
         )}
 
-        {(fromSystem || missingPrice) && (
+        {serviceCategory === 'fawateer' && Number(transactionValue) > fawateerPaymentLimit && (
+          <p className="note-line" style={{ gridColumn: '1 / -1', margin: 0 }}>
+            لا توجد عمولة محددة لقيمة سداد أكبر من 4000 ر.س
+          </p>
+        )}
+
+        {serviceCategory !== 'fawateer' && (fromSystem || missingPrice) && (
           <p className="note-line" style={{ gridColumn: '1 / -1', margin: 0 }}>
             {fromSystem
               ? canViewFinance

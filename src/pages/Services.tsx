@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
+import { Navigate, useParams } from 'react-router-dom'
 import { useCompany } from '../auth/CompanyProvider'
 import { loadServiceCommissionMap, loadServiceQuoteCommissionMap } from '../lib/finance'
 import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/format'
-import { asServiceCategory, serviceCategoryLabel, type ServiceCategory, type ServicePrice } from '../lib/types'
+import {
+  asServiceCategory,
+  billerCategoryLabel,
+  isBillerCategory,
+  serviceCategoryLabel,
+  type ServiceCategory,
+  type ServicePrice,
+} from '../lib/types'
 import Modal from '../components/Modal'
 
 function amountField(value: string | null): string {
@@ -165,15 +173,31 @@ export default function Services({ category }: { category: ServiceCategory }) {
   const [addingOpen, setAddingOpen] = useState(false)
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<ServicePrice | null>(null)
+  const [billerReady, setBillerReady] = useState(true)
+  const { biller: billerParam } = useParams()
+  const selectedBiller = category === 'fawateer' && isBillerCategory(billerParam) ? billerParam : null
 
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
-    const columns = 'id, name, transaction_value, manual, sort_order, category, steps'
-    const primary = await supabase.from('services').select(columns).order('sort_order')
+    const withBiller = await supabase
+      .from('services')
+      .select('id, name, transaction_value, manual, sort_order, category, steps, biller_category')
+      .order('sort_order')
+    const billerColumn = !(withBiller.error && /biller_category|schema cache/i.test(errorMessage(withBiller.error)))
+    const primary = billerColumn
+      ? withBiller
+      : await supabase
+          .from('services')
+          .select('id, name, transaction_value, manual, sort_order, category, steps')
+          .order('sort_order')
     // Older databases may not have category (0017) or steps (0018) yet.
     let data: Array<
-      Omit<ServicePrice, 'category' | 'steps' | 'commission'> & { category?: string | null; steps?: string | null }
+      Omit<ServicePrice, 'category' | 'steps' | 'commission' | 'biller_category'> & {
+        category?: string | null
+        steps?: string | null
+        biller_category?: string | null
+      }
     > | null = primary.data
     let queryError = primary.error
     let ready = true
@@ -199,6 +223,7 @@ export default function Services({ category }: { category: ServiceCategory }) {
     }
     setCategoryReady(ready)
     setStepsReady(stepsColumn)
+    setBillerReady(billerColumn)
 
     if (queryError) {
       const message = errorMessage(queryError)
@@ -213,6 +238,7 @@ export default function Services({ category }: { category: ServiceCategory }) {
         ...row,
         commission: null,
         category: asServiceCategory(row.category),
+        biller_category: isBillerCategory(row.biller_category) ? row.biller_category : null,
         steps: row.steps?.trim() ? row.steps : null,
       }))
       if (canViewServiceQuoteCommission) {
@@ -266,7 +292,9 @@ export default function Services({ category }: { category: ServiceCategory }) {
       setError('هذه الخدمة موجودة بالفعل')
       return
     }
+    const isFawateer = row.category === 'fawateer'
     if (
+      !isFawateer &&
       !row.manual &&
       (!draft ||
         !validAmount(draft.transaction_value) ||
@@ -282,7 +310,7 @@ export default function Services({ category }: { category: ServiceCategory }) {
     const { error: saveError } = await supabase
       .from('services')
       .update({
-        ...(row.manual
+        ...(isFawateer || row.manual
           ? { name }
           : {
               name,
@@ -324,11 +352,12 @@ export default function Services({ category }: { category: ServiceCategory }) {
     const name = newName.trim()
     const valueAmount = Number(newValue)
     const commissionAmount = Number(newCommission)
+    const isFawateer = category === 'fawateer'
     if (!name) {
       setError('أدخل اسم الخدمة')
       return
     }
-    if (!validAmount(newValue) || (canViewFinance && !validAmount(newCommission))) {
+    if (!isFawateer && (!validAmount(newValue) || (canViewFinance && !validAmount(newCommission)))) {
       setError(canViewFinance ? 'أدخل قيمة المعاملة وعمولة المكتب' : 'أدخل قيمة المعاملة')
       return
     }
@@ -341,18 +370,33 @@ export default function Services({ category }: { category: ServiceCategory }) {
       setError('جدول الخدمات غير جاهز. شغّل ملف 0017_service_category.sql في Supabase ثم حدّث الصفحة.')
       return
     }
+    if (category === 'fawateer' && !selectedBiller) {
+      setError('اختر فئة المفوتر أولاً')
+      return
+    }
+    if (category === 'fawateer' && !billerReady) {
+      setError('فئات المفوتر غير جاهزة. شغّل ملف 0035_fawateer_biller_categories.sql في Supabase ثم حدّث الصفحة.')
+      return
+    }
 
-    const group = rows.filter((row) => row.category === category)
+    const group = rows.filter(
+      (row) => row.category === category && (category !== 'fawateer' || row.biller_category === selectedBiller),
+    )
     const sortOrder = Math.max(0, ...group.map((row) => row.sort_order)) + 1
     setAdding(true)
     setError('')
     const { error: insertError } = await supabase.from('services').insert({
       name,
-      transaction_value: valueAmount.toFixed(2),
-      ...(canViewFinance ? { commission: commissionAmount.toFixed(2) } : {}),
+      ...(isFawateer
+        ? { transaction_value: null, ...(canViewFinance ? { commission: null } : {}) }
+        : {
+            transaction_value: valueAmount.toFixed(2),
+            ...(canViewFinance ? { commission: commissionAmount.toFixed(2) } : {}),
+          }),
       manual: false,
       sort_order: sortOrder,
       ...(categoryReady ? { category } : {}),
+      ...(category === 'fawateer' && selectedBiller ? { biller_category: selectedBiller } : {}),
       ...(stepsReady ? { steps: newSteps.trim() || null } : {}),
     })
     setAdding(false)
@@ -361,6 +405,8 @@ export default function Services({ category }: { category: ServiceCategory }) {
       setError(
         /duplicate|unique|services_name_key/i.test(errorMessage(insertError))
           ? 'هذه الخدمة موجودة بالفعل'
+          : /services_biller_category_check/i.test(errorMessage(insertError))
+            ? 'فئة المفوتر غير جاهزة. شغّل ملف 0035_fawateer_biller_categories.sql في Supabase ثم حدّث الصفحة.'
           : /services_category_check/i.test(errorMessage(insertError))
             ? 'نوع الخدمة غير جاهز في قاعدة البيانات. شغّل ملف 0033_service_catalog.sql في Supabase ثم حدّث الصفحة.'
             : errorMessage(insertError),
@@ -409,14 +455,24 @@ export default function Services({ category }: { category: ServiceCategory }) {
     setEditing(null)
   }
 
+  const catalogRows = rows.filter(
+    (row) => row.category === category && (category !== 'fawateer' || row.biller_category === selectedBiller),
+  )
+
+  if (category === 'fawateer' && !selectedBiller) {
+    return <Navigate to="/fawateer/communications" replace />
+  }
+
   return (
     <>
       <div className="services-page">
         <div className="page-head">
           <div>
-            <h1>{serviceCategoryLabel[category]}</h1>
+            <h1>{selectedBiller ? billerCategoryLabel[selectedBiller] : serviceCategoryLabel[category]}</h1>
             <p className="page-sub">
-              عند اختيار الخدمة في معاملة جديدة تُعبأ قيمة المعاملة وعمولة المكتب من هنا.
+              {category === 'fawateer'
+                ? 'عمولة المكتب تُحسب من قيمة السداد عند إنشاء المعاملة.'
+                : 'عند اختيار الخدمة في معاملة جديدة تُعبأ قيمة المعاملة وعمولة المكتب من هنا.'}
             </p>
             {category !== 'sdad' && !categoryReady && (
               <p className="page-sub">شغّل ملف 0017_service_category.sql في Supabase ثم حدّث الصفحة حتى تُحفظ هذه الخدمات.</p>
@@ -430,18 +486,24 @@ export default function Services({ category }: { category: ServiceCategory }) {
         {error && !addingOpen && !editing && <div className="alert alert-error">{error}</div>}
 
         <PriceSection
-          key={category}
-          rows={rows.filter((row) => row.category === category)}
+          key={category === 'fawateer' ? `${category}:${selectedBiller}` : category}
+          rows={catalogRows}
           loading={loading && rows.length === 0}
-          showCommission={canViewServiceQuoteCommission}
-          onAdd={openAdd}
+          showPrices={category !== 'fawateer'}
+          showCommission={category !== 'fawateer' && canViewServiceQuoteCommission}
           onEdit={openEdit}
           onDelete={setDeleting}
         />
       </div>
 
       <Modal
-        title={category === 'taqeeb' ? 'خدمة جديدة' : `خدمة ${serviceCategoryLabel[category]} جديدة`}
+        title={
+          selectedBiller
+            ? `خدمة ${billerCategoryLabel[selectedBiller]} جديدة`
+            : category === 'taqeeb'
+              ? 'خدمة جديدة'
+              : `خدمة ${serviceCategoryLabel[category]} جديدة`
+        }
         center
         open={addingOpen}
         onClose={closeAdd}
@@ -457,6 +519,8 @@ export default function Services({ category }: { category: ServiceCategory }) {
               onChange={(event) => setNewName(event.target.value)}
             />
           </div>
+          {category !== 'fawateer' && (
+          <>
           <div className="field">
             <label htmlFor="service-value">قيمة المعاملة (ر.س)</label>
             <input
@@ -468,7 +532,14 @@ export default function Services({ category }: { category: ServiceCategory }) {
               inputMode="decimal"
               placeholder="0"
               value={newValue}
-              onChange={(event) => setNewValue(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value
+                setNewValue(value)
+                const amount = Number(value)
+                if (value !== '' && Number.isFinite(amount) && amount >= 0 && amount <= 750) {
+                  setNewCommission('10')
+                }
+              }}
             />
           </div>
           {canViewFinance && (
@@ -486,6 +557,8 @@ export default function Services({ category }: { category: ServiceCategory }) {
                 onChange={(event) => setNewCommission(event.target.value)}
               />
             </div>
+          )}
+          </>
           )}
           <div className="field">
             <label htmlFor="service-steps">الخطوات</label>
@@ -518,7 +591,7 @@ export default function Services({ category }: { category: ServiceCategory }) {
                   onChange={(event) => setDraft(editing.id, 'name', event.target.value)}
                 />
               </div>
-              {editing.manual ? (
+              {editing.category === 'fawateer' ? null : editing.manual ? (
                 <p className="muted">تُدخل قيمة المعاملة وعمولة المكتب يدوياً عند إضافة المعاملة.</p>
               ) : (
                 <>
@@ -635,11 +708,13 @@ function pageStarts(heights: number[], available: number): number[] {
 
 function PriceRow({
   row,
+  showPrices,
   showCommission,
   onEdit,
   onDelete,
 }: {
   row: ServicePrice
+  showPrices: boolean
   showCommission: boolean
   onEdit?: (row: ServicePrice) => void
   onDelete?: (row: ServicePrice) => void
@@ -647,14 +722,15 @@ function PriceRow({
   return (
     <div className="price-row">
       <div className="price-name">{row.name}</div>
-      {row.manual ? (
-        <p className="price-manual">تُدخل يدوياً عند إضافة المعاملة</p>
-      ) : (
-        <>
-          <span className="price-value num">{amountField(row.transaction_value) || '—'}</span>
-          {showCommission && <span className="price-value num">{amountField(row.commission) || '—'}</span>}
-        </>
-      )}
+      {showPrices &&
+        (row.manual ? (
+          <p className="price-manual">تُدخل يدوياً عند إضافة المعاملة</p>
+        ) : (
+          <>
+            <span className="price-value num">{amountField(row.transaction_value) || '—'}</span>
+            {showCommission && <span className="price-value num">{amountField(row.commission) || '—'}</span>}
+          </>
+        ))}
       <div className="price-actions">
         <button type="button" className="btn btn-primary btn-sm" onClick={() => onEdit?.(row)}>
           تعديل الخدمة
@@ -676,15 +752,15 @@ function PriceRow({
 function PriceSection({
   rows,
   loading,
+  showPrices,
   showCommission,
-  onAdd,
   onEdit,
   onDelete,
 }: {
   rows: ServicePrice[]
   loading: boolean
+  showPrices: boolean
   showCommission: boolean
-  onAdd: () => void
   onEdit: (row: ServicePrice) => void
   onDelete: (row: ServicePrice) => void
 }) {
@@ -742,7 +818,13 @@ function PriceSection({
     const observer = new ResizeObserver(layout)
     observer.observe(body)
     return () => observer.disconnect()
-  }, [rows, showCommission])
+  }, [rows, showCommission, showPrices])
+
+  const sheetClass = !showPrices
+    ? 'price-sheet price-sheet-name'
+    : showCommission
+      ? 'price-sheet'
+      : 'price-sheet price-sheet-safe'
 
   return (
     <section className="price-section">
@@ -756,24 +838,25 @@ function PriceSection({
             </span>
             <strong>لا توجد خدمات</strong>
             <p>أضف أول خدمة في هذا القسم لتظهر عند إنشاء معاملة جديدة.</p>
-            <button type="button" className="btn btn-primary" onClick={onAdd}>
-              إضافة خدمة
-            </button>
           </div>
         ) : (
-          <div
-            ref={sheetRef}
-            className={showCommission ? 'price-sheet' : 'price-sheet price-sheet-safe'}
-          >
+          <div ref={sheetRef} className={sheetClass}>
             <div className="price-head">
               <span>الخدمة</span>
-              <span>قيمة المعاملة (ر.س)</span>
-              {showCommission && <span>عمولة المكتب (ر.س)</span>}
+              {showPrices && <span>قيمة المعاملة (ر.س)</span>}
+              {showPrices && showCommission && <span>عمولة المكتب (ر.س)</span>}
               <span />
             </div>
             <div className="price-body" ref={bodyRef}>
               {visibleRows.map((row) => (
-                <PriceRow key={row.id} row={row} showCommission={showCommission} onEdit={onEdit} onDelete={onDelete} />
+                <PriceRow
+                  key={row.id}
+                  row={row}
+                  showPrices={showPrices}
+                  showCommission={showCommission}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                />
               ))}
             </div>
           </div>
@@ -811,11 +894,17 @@ function PriceSection({
         {rows.length > 0 && (
           <div
             ref={measureRef}
-            className={showCommission ? 'price-measure' : 'price-measure price-measure-safe'}
+            className={
+              !showPrices
+                ? 'price-measure price-measure-name'
+                : showCommission
+                  ? 'price-measure'
+                  : 'price-measure price-measure-safe'
+            }
             aria-hidden="true"
           >
             {rows.map((row) => (
-              <PriceRow key={row.id} row={row} showCommission={showCommission} />
+              <PriceRow key={row.id} row={row} showPrices={showPrices} showCommission={showCommission} />
             ))}
           </div>
         )}
