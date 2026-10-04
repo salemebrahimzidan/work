@@ -3,7 +3,7 @@ import { ChevronDown } from 'lucide-react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { useCompany } from '../auth/CompanyProvider'
-import { billerCategories, billerCategoryLabel, serviceCategories, serviceCategoryLabel, serviceCategoryPath } from '../lib/types'
+import { billerCategories, billerCategoryLabel, categoriesForNav, serviceCategoryLabel, serviceCategoryPath } from '../lib/types'
 
 const links = [
   { to: '/', label: 'لوحة التحكم', admin: true },
@@ -26,12 +26,15 @@ const paymentLinks: NavItem[] = [
   },
 ]
 
-const serviceLinks = serviceCategories
-  .filter((category) => category !== 'sdad' && category !== 'fawateer')
-  .map((category) => ({
-    to: serviceCategoryPath[category],
-    label: serviceCategoryLabel[category].replace(/^خدمات\s+/, ''),
-  }))
+const serviceLinks = categoriesForNav('services').map((category) => ({
+  to: serviceCategoryPath[category],
+  label: serviceCategoryLabel[category].replace(/^خدمات\s+/, ''),
+}))
+
+const ticketLinks = categoriesForNav('tickets').map((category) => ({
+  to: serviceCategoryPath[category],
+  label: serviceCategoryLabel[category],
+}))
 
 export default function Layout() {
   const { session, profile, isAdmin, signOut } = useAuth()
@@ -80,6 +83,16 @@ export default function Layout() {
             <>
               <NavMenu id="nav-payment" label="سداد" items={paymentLinks} pathname={pathname} linkClass={linkClass} />
               <NavMenu id="nav-services" label="خدمات" items={serviceLinks} pathname={pathname} linkClass={linkClass} />
+              {ticketLinks.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className={linkClass(isPathActive(pathname, link.to))}
+                  aria-current={isPathActive(pathname, link.to) ? 'page' : undefined}
+                >
+                  {link.label}
+                </Link>
+              ))}
             </>
           )}
           {canViewReports && (

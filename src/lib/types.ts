@@ -55,6 +55,11 @@ export const serviceCategories = [
   'tamweel',
   'khassa',
   'zakat',
+  'mawarid',
+  'mawaeed',
+  'manasat',
+  'tadhakir',
+  'taqdeem',
 ] as const
 
 export type ServiceCategory = (typeof serviceCategories)[number]
@@ -80,6 +85,11 @@ export const serviceCategoryLabel: Record<ServiceCategory, string> = {
   tamweel: 'خدمات التمويل والبنوك',
   khassa: 'خدمات المعاملات الخاصة',
   zakat: 'خدمات الزكاة والضريبة والتأمينات والقوائم المالية',
+  mawarid: 'خدمات الموارد البشرية والشكاوي',
+  mawaeed: 'خدمات المواعيد والتقارير',
+  manasat: 'خدمات المنصات الحكومية',
+  tadhakir: 'تذاكر الطيران والبحر والنقل',
+  taqdeem: 'تقديم الوظائف والجامعات الحكومية ومنصات المدارس وتسجيل الاختبارات',
 }
 
 export const billerCategories = [
@@ -110,6 +120,17 @@ export const billerCategoryLabel: Record<BillerCategory, string> = {
   redbull_mobile: 'ريد بُل موبايل',
 }
 
+/** Where a catalog appears in the sidebar. Payment and tickets are not repeated under خدمات. */
+export function serviceNavGroup(category: ServiceCategory): 'payment' | 'services' | 'tickets' {
+  if (category === 'sdad' || category === 'fawateer') return 'payment'
+  if (category === 'tadhakir' || category === 'taqdeem') return 'tickets'
+  return 'services'
+}
+
+export function categoriesForNav(group: 'payment' | 'services' | 'tickets'): ServiceCategory[] {
+  return serviceCategories.filter((category) => serviceNavGroup(category) === group)
+}
+
 export const serviceCategoryPath: Record<ServiceCategory, string> = {
   sdad: '/services',
   taqeeb: '/taqeeb',
@@ -123,6 +144,11 @@ export const serviceCategoryPath: Record<ServiceCategory, string> = {
   tamweel: '/tamweel',
   khassa: '/khassa',
   zakat: '/zakat',
+  mawarid: '/mawarid',
+  mawaeed: '/mawaeed',
+  manasat: '/manasat',
+  tadhakir: '/tadhakir',
+  taqdeem: '/taqdeem',
 }
 
 export interface ServicePrice {
