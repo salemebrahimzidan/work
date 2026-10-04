@@ -12,7 +12,10 @@ interface CompanyValue {
   /** More than one company is visible and none is selected as active. */
   ambiguous: boolean
   canViewReports: boolean
+  /** Owner/admin office profit, profit reports, and commission editing. */
   canViewFinance: boolean
+  /** Active member may read the catalog commission in order to quote a customer. */
+  canViewServiceQuoteCommission: boolean
   reload: () => Promise<void>
 }
 
@@ -92,6 +95,7 @@ export function CompanyProvider({ userId, children }: { userId: string; children
       ambiguous,
       canViewReports: role === 'owner' || role === 'admin' || role === 'manager',
       canViewFinance: role === 'owner' || role === 'admin',
+      canViewServiceQuoteCommission: role !== null,
       reload,
     }),
     [company, role, loading, error, ambiguous, reload],

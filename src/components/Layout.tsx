@@ -1,4 +1,5 @@
-import { Fragment } from 'react'
+import { useEffect, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { useCompany } from '../auth/CompanyProvider'
@@ -11,12 +12,19 @@ const links = [
   { to: '/transactions?status=in_progress', label: 'قيد التنفيذ', admin: false },
   { to: '/transactions?status=cancelled', label: 'ملغاة', admin: false },
   { to: '/transactions?status=completed', label: 'مكتملة', admin: false },
-  ...serviceCategories.map((category) => ({
-    to: serviceCategoryPath[category],
-    label: serviceCategoryLabel[category],
-    admin: true,
-  })),
 ]
+
+const paymentLinks = [
+  { to: serviceCategoryPath.sdad, label: serviceCategoryLabel.sdad },
+  { to: serviceCategoryPath.fawateer, label: serviceCategoryLabel.fawateer },
+]
+
+const serviceLinks = serviceCategories
+  .filter((category) => category !== 'sdad' && category !== 'fawateer')
+  .map((category) => ({
+    to: serviceCategoryPath[category],
+    label: serviceCategoryLabel[category].replace(/^خدمات\s+/, ''),
+  }))
 
 export default function Layout() {
   const { session, profile, isAdmin, signOut } = useAuth()
@@ -35,7 +43,7 @@ export default function Layout() {
       const wanted = new URLSearchParams(query).get('status')
       return pathname.startsWith('/transactions') && statusParam === wanted
     }
-    return pathname === to || pathname.startsWith(`${to}/`)
+    return isPathActive(pathname, to)
   }
 
   return (
@@ -52,25 +60,21 @@ export default function Layout() {
           {links
             .filter((link) => !link.admin || isAdmin)
             .map((link) => (
-              <Fragment key={link.to}>
-                <Link
-                  to={link.to}
-                  className={linkClass(isMainActive(link.to))}
-                  aria-current={isMainActive(link.to) ? 'page' : undefined}
-                >
-                  {link.label}
-                </Link>
-                {canViewFinance && link.to === '/transactions?status=completed' && (
-                  <Link
-                    to="/profits"
-                    className={linkClass(isMainActive('/profits'))}
-                    aria-current={isMainActive('/profits') ? 'page' : undefined}
-                  >
-                    الأرباح
-                  </Link>
-                )}
-              </Fragment>
+              <Link
+                key={link.to}
+                to={link.to}
+                className={linkClass(isMainActive(link.to))}
+                aria-current={isMainActive(link.to) ? 'page' : undefined}
+              >
+                {link.label}
+              </Link>
             ))}
+          {isAdmin && (
+            <>
+              <NavMenu id="nav-payment" label="سداد" items={paymentLinks} pathname={pathname} linkClass={linkClass} />
+              <NavMenu id="nav-services" label="خدمات" items={serviceLinks} pathname={pathname} linkClass={linkClass} />
+            </>
+          )}
           {canViewReports && (
             <Link
               to="/reports"
@@ -78,6 +82,15 @@ export default function Layout() {
               aria-current={isMainActive('/reports') ? 'page' : undefined}
             >
               التقارير
+            </Link>
+          )}
+          {canViewFinance && (
+            <Link
+              to="/profits"
+              className={linkClass(isMainActive('/profits'))}
+              aria-current={isMainActive('/profits') ? 'page' : undefined}
+            >
+              الأرباح
             </Link>
           )}
         </nav>
@@ -98,4 +111,61 @@ export default function Layout() {
       </main>
     </div>
   )
+}
+
+function NavMenu({
+  id,
+  label,
+  items,
+  pathname,
+  linkClass,
+}: {
+  id: string
+  label: string
+  items: { to: string; label: string }[]
+  pathname: string
+  linkClass: (active: boolean) => string
+}) {
+  const active = items.some((link) => isPathActive(pathname, link.to))
+  const [open, setOpen] = useState(active)
+
+  useEffect(() => {
+    if (active) setOpen(true)
+  }, [active])
+
+  return (
+    <div className={open ? 'nav-menu is-open' : 'nav-menu'}>
+      <button
+        type="button"
+        className={linkClass(active && !open)}
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => setOpen((current) => !current)}
+      >
+        {label}
+        <ChevronDown className="nav-caret" size={16} strokeWidth={2} aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="nav-menu-items" id={id}>
+          {items.map((link) => {
+            const current = isPathActive(pathname, link.to)
+            return (
+              <Link
+                key={link.to}
+                to={link.to}
+                className={`${linkClass(current)} nav-sub`}
+                aria-current={current ? 'page' : undefined}
+              >
+                {link.label}
+              </Link>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function isPathActive(pathname: string, to: string) {
+  return pathname === to || pathname.startsWith(`${to}/`)
 }

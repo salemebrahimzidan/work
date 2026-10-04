@@ -31,6 +31,17 @@ export async function loadOfficeProfitMap(): Promise<Record<string, string>> {
 export async function loadServiceCommissionMap(): Promise<Record<string, string | null>> {
   const { data, error } = await supabase.rpc('service_commissions')
   if (error) throw error
+  return commissionMap(data)
+}
+
+/** Catalog commission for quoting. Does not include transaction profit. */
+export async function loadServiceQuoteCommissionMap(): Promise<Record<string, string | null>> {
+  const { data, error } = await supabase.rpc('service_quote_commissions')
+  if (error) throw error
+  return commissionMap(data)
+}
+
+function commissionMap(data: unknown): Record<string, string | null> {
   const map: Record<string, string | null> = {}
   for (const row of (data ?? []) as { id: string; commission: string | number | null }[]) {
     map[String(row.id)] = row.commission == null ? null : String(row.commission)
