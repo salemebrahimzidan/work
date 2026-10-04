@@ -82,6 +82,34 @@ export const serviceCategoryLabel: Record<ServiceCategory, string> = {
   zakat: 'خدمات الزكاة والضريبة والتأمينات والقوائم المالية',
 }
 
+export const billerCategories = [
+  'communications',
+  'government',
+  'financial',
+  'internet',
+  'travel',
+  'municipalities',
+  'media_education',
+  'redbull_mobile',
+] as const
+
+export type BillerCategory = (typeof billerCategories)[number]
+
+export function isBillerCategory(value: string | null | undefined): value is BillerCategory {
+  return !!value && (billerCategories as readonly string[]).includes(value)
+}
+
+export const billerCategoryLabel: Record<BillerCategory, string> = {
+  communications: 'الخدمات والاتصالات',
+  government: 'جهات حكومية',
+  financial: 'قطاعات مالية',
+  internet: 'حاسب/إنترنت',
+  travel: 'سياحة وسفر/ترفيه',
+  municipalities: 'الأمانات والبلديات',
+  media_education: 'إعلام/تعليم',
+  redbull_mobile: 'ريد بُل موبايل',
+}
+
 export const serviceCategoryPath: Record<ServiceCategory, string> = {
   sdad: '/services',
   taqeeb: '/taqeeb',
@@ -105,6 +133,7 @@ export interface ServicePrice {
   manual: boolean
   sort_order: number
   category: ServiceCategory
+  biller_category: BillerCategory | null
   steps: string | null
 }
 

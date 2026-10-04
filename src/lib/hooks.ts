@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
-import { asServiceCategory, type GroupCount, type ServicePrice } from './types'
+import { asServiceCategory, isBillerCategory, type GroupCount, type ServicePrice } from './types'
 
 export interface CustomerOption {
   id: string
@@ -39,11 +39,25 @@ export function useServicePrices() {
     let active = true
 
     async function load() {
-      const columns = 'id, name, transaction_value, manual, sort_order, category, steps'
-      const primary = await supabase.from('services').select(columns).order('sort_order')
+      const withBiller = await supabase
+        .from('services')
+        .select('id, name, transaction_value, manual, sort_order, category, steps, biller_category')
+        .order('sort_order')
+      const primary =
+        withBiller.error && /biller_category|schema cache/i.test(withBiller.error.message)
+          ? await supabase
+              .from('services')
+              .select('id, name, transaction_value, manual, sort_order, category, steps')
+              .order('sort_order')
+          : withBiller
       // Older databases may not have category (0017) or steps (0018) yet.
-      let data: Array<Omit<ServicePrice, 'category' | 'steps' | 'commission'> & { category?: string | null; steps?: string | null }> | null =
-        primary.data
+      let data: Array<
+        Omit<ServicePrice, 'category' | 'steps' | 'commission' | 'biller_category'> & {
+          category?: string | null
+          steps?: string | null
+          biller_category?: string | null
+        }
+      > | null = primary.data
       let queryError = primary.error
       if (queryError && /steps|schema cache/i.test(queryError.message)) {
         const withoutSteps = await supabase
@@ -69,6 +83,7 @@ export function useServicePrices() {
             ...row,
             commission: null,
             category: asServiceCategory(row.category),
+            biller_category: isBillerCategory(row.biller_category) ? row.biller_category : null,
             steps: row.steps?.trim() ? row.steps : null,
           })),
         )

@@ -88,7 +88,18 @@ function AuthenticatedApp() {
               </FinanceOnly>
             }
           />
-          {serviceCategories.map((category) => (
+          <Route path="/fawateer" element={<Navigate to="/fawateer/communications" replace />} />
+          <Route
+            path="/fawateer/:biller"
+            element={
+              <AdminOnly>
+                <Services category="fawateer" />
+              </AdminOnly>
+            }
+          />
+          {serviceCategories
+            .filter((category) => category !== 'fawateer')
+            .map((category) => (
             <Route
               key={category}
               path={serviceCategoryPath[category]}

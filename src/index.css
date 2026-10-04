@@ -126,12 +126,18 @@ a {
   cursor: pointer;
 }
 
+.nav-menu > button.nav-sub {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
 .nav-caret {
   flex: none;
   transition: transform 0.15s ease;
 }
 
-.nav-menu.is-open .nav-caret {
+.nav-menu.is-open > button .nav-caret {
   transform: rotate(180deg);
 }
 
@@ -144,6 +150,10 @@ a {
 .nav-sub {
   padding-inline-start: 22px;
   font-size: 13px;
+}
+
+.nav-sub-2 {
+  padding-inline-start: 36px;
 }
 
 .nav-label {
@@ -1387,7 +1397,7 @@ tbody tr.row-open:hover {
 
 .price-empty p {
   max-width: 28rem;
-  margin: 0 0 8px;
+  margin: 0;
   color: var(--muted);
   font-size: 13px;
   line-height: 1.7;
@@ -1487,6 +1497,10 @@ tbody tr.row-open:hover {
   grid-template-columns: minmax(12rem, 1.6fr) minmax(9rem, 1fr) auto;
 }
 
+.price-sheet.price-sheet-name {
+  grid-template-columns: minmax(12rem, 1fr) auto;
+}
+
 .price-head,
 .price-row,
 .price-body {
@@ -1518,6 +1532,10 @@ tbody tr.row-open:hover {
 
 .price-measure-safe {
   grid-template-columns: minmax(12rem, 1.6fr) minmax(9rem, 1fr) auto;
+}
+
+.price-measure-name {
+  grid-template-columns: minmax(12rem, 1fr) auto;
 }
 
 .price-head {
