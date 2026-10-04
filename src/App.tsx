@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthProvider'
 import { CompanyProvider, useCompany } from './auth/CompanyProvider'
 import Layout from './components/Layout'
+import { SkeletonTable } from './components/LoadingSkeleton'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Customers from './pages/Customers'
@@ -22,7 +23,7 @@ function AdminOnly({ children }: { children: ReactNode }) {
 
 function FinanceOnly({ children }: { children: ReactNode }) {
   const { canViewFinance, loading } = useCompany()
-  if (loading) return <div className="empty">جارٍ التحميل…</div>
+  if (loading) return <SkeletonTable headers={['العميل', 'المعاملة', 'قيمة المعاملة', 'الحالة', 'التاريخ']} />
   if (!canViewFinance) return <Navigate to="/customers" replace />
   return children
 }
@@ -36,7 +37,7 @@ function AuthenticatedApp() {
   const { session, loading, profileLoading, isMember, signOut } = useAuth()
 
   if (loading) {
-    return <div className="center-screen">جارٍ التحميل…</div>
+    return <BootScreen />
   }
 
   // التطبيق خاص: لا يمكن عرض أي صفحة بدون تسجيل دخول
@@ -45,7 +46,7 @@ function AuthenticatedApp() {
   }
 
   if (profileLoading) {
-    return <div className="center-screen">جارٍ التحميل…</div>
+    return <BootScreen />
   }
 
   // الحسابات الجديدة تبقى بدون أي صلاحية وصول حتى يعتمدها المشرف
@@ -116,6 +117,22 @@ function AuthenticatedApp() {
         </Routes>
       </BrowserRouter>
     </CompanyProvider>
+  )
+}
+
+function BootScreen() {
+  return (
+    <div className="app">
+      <aside className="sidebar">
+        <div className="brand">
+          <img className="brand-mark" src="/logo.svg" alt="" />
+          <span className="brand-name">الايمان روح الذهبية</span>
+        </div>
+      </aside>
+      <main className="main">
+        <SkeletonTable headers={['', '', '', '']} />
+      </main>
+    </div>
   )
 }
 

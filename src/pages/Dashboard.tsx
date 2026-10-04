@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import CustomerForm from '../components/CustomerForm'
+import { SkeletonRows } from '../components/LoadingSkeleton'
 import Modal from '../components/Modal'
 import TransactionForm from '../components/TransactionForm'
 import { useCompany } from '../auth/CompanyProvider'
@@ -218,7 +219,9 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {recent.map((row) => {
+              {loading && recent.length === 0 ? (
+                <SkeletonRows columns={canViewFinance ? 6 : 5} />
+              ) : recent.map((row) => {
                 const status = transactionStatus(row.status)
                 return (
                   <tr
@@ -252,9 +255,7 @@ export default function Dashboard() {
               })}
             </tbody>
           </table>
-          {recent.length === 0 && (
-            <div className="empty">{loading ? 'جارٍ التحميل…' : 'لا توجد معاملات حديثة'}</div>
-          )}
+          {!loading && recent.length === 0 && <div className="empty">لا توجد معاملات حديثة</div>}
         </div>
       </section>
 
