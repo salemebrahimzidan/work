@@ -153,11 +153,16 @@ export default function CompanyActionCenter({ reloadToken = 0 }: { reloadToken?:
 
   return (
     <section className="action-center" aria-label="مركز الإجراءات">
-      <div className="page-head">
+      <div className="action-head">
         <div>
           <h2>مركز الإجراءات</h2>
           <p className="page-sub">{company ? company.name : 'متابعة الشركة الحالية'}</p>
         </div>
+        {!companyLoading && !loading && company && (
+          <span className={alertCount > 0 ? 'action-badge is-live' : 'action-badge'}>
+            {alertCount === 0 ? 'لا توجد تنبيهات' : alertCount === 1 ? 'تنبيه واحد' : `${count(alertCount)} تنبيهات`}
+          </span>
+        )}
       </div>
 
       {companyError && <div className="alert alert-error">{companyError}</div>}
@@ -171,32 +176,50 @@ export default function CompanyActionCenter({ reloadToken = 0 }: { reloadToken?:
         </div>
       ) : (
         <>
-          <div className="action-grid">
-            <CountCard href="/employees" label="الموظفون النشطون" value={activeEmployees} />
-            <CountCard href="/employees" label="إقامات منتهية" value={expiredIqama.length} warn={expiredIqama.length > 0} />
-            <CountCard href="/employees" label="إقامات خلال 30 يوماً" value={soonIqama.length} warn={soonIqama.length > 0} />
-            <CountCard href="/employees" label="جوازات منتهية" value={expiredPassport.length} warn={expiredPassport.length > 0} />
-            <CountCard href="/employees" label="جوازات خلال 30 يوماً" value={soonPassport.length} warn={soonPassport.length > 0} />
-            <CountCard href="/employees" label="مستندات منتهية" value={expiredDocuments.length} warn={expiredDocuments.length > 0} />
-            <CountCard href="/employees" label="مستندات خلال 30 يوماً" value={soonDocuments.length} warn={soonDocuments.length > 0} />
-            <CountCard href="/tasks" label="مهام متأخرة" value={overdueTasks.length} warn={overdueTasks.length > 0} />
-            <CountCard href="/tasks" label="مهام تستحق اليوم" value={todayTasks.length} warn={todayTasks.length > 0} />
-            <CountCard href="/tasks" label="مهام عاجلة" value={urgentTasks.length} warn={urgentTasks.length > 0} />
+          <div className="action-panels">
+            <article className="action-panel">
+              <div className="action-panel-head">
+                <h3>الموظفون</h3>
+                <Link to="/employees">
+                  النشطون <strong className="num" dir="ltr">{count(activeEmployees)}</strong>
+                </Link>
+              </div>
+              <div className="action-matrix" role="table" aria-label="تنبيهات الموظفين">
+                <div className="action-matrix-head" role="row">
+                  <span role="columnheader" />
+                  <span role="columnheader">منتهية</span>
+                  <span role="columnheader">خلال 30 يوماً</span>
+                </div>
+                <MatrixRow label="الإقامة" href="/employees" expired={expiredIqama.length} soon={soonIqama.length} />
+                <MatrixRow label="الجواز" href="/employees" expired={expiredPassport.length} soon={soonPassport.length} />
+                <MatrixRow label="المستندات" href="/employees" expired={expiredDocuments.length} soon={soonDocuments.length} />
+              </div>
+            </article>
+
+            <article className="action-panel">
+              <div className="action-panel-head">
+                <h3>المهام</h3>
+                <Link to="/tasks">عرض المهام</Link>
+              </div>
+              <div className="action-tasks">
+                <TaskMetric href="/tasks" label="متأخرة" value={overdueTasks.length} tone="danger" />
+                <TaskMetric href="/tasks" label="تستحق اليوم" value={todayTasks.length} tone="soon" />
+                <TaskMetric href="/tasks" label="عاجلة" value={urgentTasks.length} tone="danger" />
+              </div>
+            </article>
           </div>
 
-          {alertCount === 0 ? (
-            <div className="empty">لا توجد تنبيهات حالياً</div>
-          ) : (
+          {alertCount > 0 && (
             <div className="action-groups">
-              <AlertGroup title="إقامات منتهية" items={expiredIqama} />
-              <AlertGroup title="إقامات خلال 30 يوماً" items={soonIqama} />
-              <AlertGroup title="جوازات منتهية" items={expiredPassport} />
-              <AlertGroup title="جوازات خلال 30 يوماً" items={soonPassport} />
-              <AlertGroup title="مستندات منتهية" items={expiredDocuments} />
-              <AlertGroup title="مستندات خلال 30 يوماً" items={soonDocuments} />
-              <AlertGroup title="مهام متأخرة" items={overdueTasks} />
-              <AlertGroup title="مهام تستحق اليوم" items={todayTasks} />
-              <AlertGroup title="مهام عاجلة" items={urgentTasks} />
+              <AlertGroup title="إقامات منتهية" items={expiredIqama} tone="danger" />
+              <AlertGroup title="إقامات خلال 30 يوماً" items={soonIqama} tone="soon" />
+              <AlertGroup title="جوازات منتهية" items={expiredPassport} tone="danger" />
+              <AlertGroup title="جوازات خلال 30 يوماً" items={soonPassport} tone="soon" />
+              <AlertGroup title="مستندات منتهية" items={expiredDocuments} tone="danger" />
+              <AlertGroup title="مستندات خلال 30 يوماً" items={soonDocuments} tone="soon" />
+              <AlertGroup title="مهام متأخرة" items={overdueTasks} tone="danger" />
+              <AlertGroup title="مهام تستحق اليوم" items={todayTasks} tone="soon" />
+              <AlertGroup title="مهام عاجلة" items={urgentTasks} tone="danger" />
             </div>
           )}
         </>
@@ -211,22 +234,57 @@ function pushExpiry(expired: DatedItem[], soon: DatedItem[], value: string | nul
   else if (kind === 'soon') soon.push(item)
 }
 
-function CountCard({ href, label, value, warn = false }: { href: string; label: string; value: number; warn?: boolean }) {
+function MatrixRow({
+  label,
+  href,
+  expired,
+  soon,
+}: {
+  label: string
+  href: string
+  expired: number
+  soon: number
+}) {
   return (
-    <Link className={warn ? 'action-stat warn' : 'action-stat'} to={href}>
-      <span className="stat-label">{label}</span>
-      <span className="stat-value num" dir="ltr">
+    <div className="action-matrix-row" role="row">
+      <span role="rowheader">{label}</span>
+      <CountLink href={href} value={expired} tone="danger" label={`${label} المنتهية`} />
+      <CountLink href={href} value={soon} tone="soon" label={`${label} خلال 30 يوماً`} />
+    </div>
+  )
+}
+
+function CountLink({ href, value, tone, label }: { href: string; value: number; tone: 'danger' | 'soon'; label: string }) {
+  return (
+    <Link className={value > 0 ? `action-count is-${tone}` : 'action-count'} to={href} aria-label={`${label}: ${count(value)}`}>
+      <span className="num" dir="ltr">
         {count(value)}
       </span>
     </Link>
   )
 }
 
-function AlertGroup({ title, items }: { title: string; items: DatedItem[] }) {
+function TaskMetric({ href, label, value, tone }: { href: string; label: string; value: number; tone: 'danger' | 'soon' }) {
+  return (
+    <Link className={value > 0 ? `action-task is-${tone}` : 'action-task'} to={href}>
+      <span>{label}</span>
+      <strong className="num" dir="ltr">
+        {count(value)}
+      </strong>
+    </Link>
+  )
+}
+
+function AlertGroup({ title, items, tone }: { title: string; items: DatedItem[]; tone: 'danger' | 'soon' }) {
   if (items.length === 0) return null
   return (
-    <section className="card action-group">
-      <h3 className="card-title">{title}</h3>
+    <section className={`card action-group is-${tone}`}>
+      <h3 className="card-title">
+        {title}
+        <span className="num" dir="ltr">
+          {count(items.length)}
+        </span>
+      </h3>
       <ul className="action-list">
         {items.map((item) => (
           <li key={item.id}>

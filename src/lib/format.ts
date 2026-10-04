@@ -7,23 +7,20 @@ const moneyFormatter = new Intl.NumberFormat('ar-SA', {
   numberingSystem: 'latn',
 })
 
-const dateFormatter = new Intl.DateTimeFormat('ar-SA', {
+const dateFormatter = new Intl.DateTimeFormat('en-GB', {
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
-  numberingSystem: 'latn',
-  calendar: 'gregory',
   timeZone: 'Asia/Riyadh',
 })
 
-const dateTimeFormatter = new Intl.DateTimeFormat('ar-SA', {
+const dateTimeFormatter = new Intl.DateTimeFormat('en-GB', {
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
   hour: '2-digit',
   minute: '2-digit',
-  numberingSystem: 'latn',
-  calendar: 'gregory',
+  hourCycle: 'h23',
   timeZone: 'Asia/Riyadh',
 })
 
@@ -44,9 +41,13 @@ export function transactionStatus(status: string | null | undefined) {
   return { label: 'مقفل', badge: 'badge badge-locked' }
 }
 
+export function formatRiyadhDate(date: Date): string {
+  return dateFormatter.format(date)
+}
+
 export function formatDate(value: string | null | undefined): string {
   if (!value) return '—'
-  return dateFormatter.format(new Date(value))
+  return formatRiyadhDate(new Date(value))
 }
 
 export function formatDateTime(value: string | null | undefined): string {

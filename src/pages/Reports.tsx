@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useCompany } from '../auth/CompanyProvider'
+import DateField from '../components/DateField'
 import SelectField from '../components/SelectField'
 import { supabase } from '../lib/supabase'
 import { downloadCsv, type CsvValue } from '../lib/csv'
@@ -672,11 +673,11 @@ function CustomerReport({
         <div className="filters">
           <div className="field">
             <label htmlFor="report-from">من تاريخ</label>
-            <input id="report-from" type="date" value={fromDate} onChange={(event) => onFromDate(event.target.value)} />
+            <DateField id="report-from" value={fromDate} onChange={onFromDate} />
           </div>
           <div className="field">
             <label htmlFor="report-to">إلى تاريخ</label>
-            <input id="report-to" type="date" value={toDate} onChange={(event) => onToDate(event.target.value)} />
+            <DateField id="report-to" value={toDate} onChange={onToDate} />
           </div>
         </div>
       </section>

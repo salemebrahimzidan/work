@@ -9,7 +9,7 @@ import ExpiryDate from '../components/ExpiryDate'
 import EmployeeDocuments from '../components/EmployeeDocuments'
 import EmployeeTasks from '../components/EmployeeTasks'
 import EmployeeActivity from '../components/EmployeeActivity'
-import type { Branch, Employee } from '../lib/types'
+import type { Branch, Employee, EmploymentStatus } from '../lib/types'
 import {
   draftToInput,
   employeeError,
@@ -25,9 +25,24 @@ const DETAIL_COLUMNS =
 
 type BranchOption = Pick<Branch, 'id' | 'name' | 'is_active' | 'city'>
 
+function statusClass(status: EmploymentStatus) {
+  if (status === 'active') return 'badge badge-completed'
+  if (status === 'vacation') return 'badge badge-pending'
+  if (status === 'terminated') return 'badge badge-cancelled'
+  return 'badge badge-locked'
+}
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return 'م'
+  if (parts.length === 1) return parts[0].slice(0, 1)
+  return `${parts[0].slice(0, 1)}${parts[1].slice(0, 1)}`
+}
+
 function Field({ label, value, ltr }: { label: string; value: string; ltr?: boolean }) {
+  const empty = !value.trim() || value === '—'
   return (
-    <div className="profile-field">
+    <div className={empty ? 'profile-field is-empty' : 'profile-field'}>
       <div className="profile-label">{label}</div>
       <div className={ltr ? 'profile-value num' : 'profile-value'} dir={ltr ? 'ltr' : undefined}>
         {value || '—'}
@@ -113,37 +128,17 @@ export default function EmployeeDetails() {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>{employee?.full_name || 'بيانات الموظف'}</h1>
-          <p className="page-sub">
-            <Link to="/employees">العودة إلى الموظفين</Link>
-            {company ? ` — ${company.name}` : ''}
-          </p>
-        </div>
-        {employee && (canManageEmployees || canDeleteEmployees) && (
-          <div className="branch-actions">
-            {canManageEmployees && (
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => {
-                  setError('')
-                  setNotice('')
-                  setDraft(employeeToDraft(employee))
-                }}
-              >
-                تعديل
-              </button>
-            )}
-            {canDeleteEmployees && (
-              <button type="button" className="btn btn-danger" onClick={() => setDeleteOpen(true)}>
-                حذف
-              </button>
-            )}
+      {!employee && (
+        <div className="page-head">
+          <div>
+            <h1>بيانات الموظف</h1>
+            <p className="page-sub">
+              <Link to="/employees">العودة إلى الموظفين</Link>
+              {company ? ` — ${company.name}` : ''}
+            </p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {notice && !draft && !deleteOpen && <div className="alert alert-ok">{notice}</div>}
       {(companyError || error) && !draft && !deleteOpen && <div className="alert alert-error">{companyError || error}</div>}
@@ -158,57 +153,117 @@ export default function EmployeeDetails() {
         </div>
       ) : (
         <div className="employee-sections">
-          <section className="card">
-            <h2 className="card-title">البيانات الأساسية</h2>
-            <div className="profile-grid">
-              <Field label="الرقم الوظيفي" value={employee.employee_number || '—'} />
-              <Field label="الاسم الكامل" value={employee.full_name} />
-              <Field label="الجنسية" value={employee.nationality || '—'} />
-              <Field label="الجوال" value={employee.mobile || '—'} ltr />
-              <Field label="البريد الإلكتروني" value={employee.email || '—'} ltr />
-            </div>
-          </section>
-
-          <section className="card">
-            <h2 className="card-title">بيانات العمل</h2>
-            <div className="profile-grid">
-              <Field label="الفرع" value={branch ? branch.name : 'بدون فرع'} />
-              <Field label="مدينة الفرع" value={branch?.city || '—'} />
-              <Field label="المسمى الوظيفي" value={employee.job_title || '—'} />
-              <Field label="حالة التوظيف" value={employmentStatusLabel[employee.employment_status]} />
-              <Field label="تاريخ التعيين" value={formatEmployeeDate(employee.hire_date)} ltr />
-            </div>
-          </section>
-
-          <section className="card">
-            <h2 className="card-title">الإقامة</h2>
-            <div className="profile-grid">
-              <Field label="رقم الإقامة" value={employee.iqama_number || '—'} ltr />
-              <div className="profile-field">
-                <div className="profile-label">تاريخ الانتهاء</div>
-                <div className="profile-value">
-                  <ExpiryDate value={employee.iqama_expiry_date} />
+          <section className="card employee-hero">
+            <div className="employee-identity">
+              <div className="employee-avatar" aria-hidden="true">
+                {initials(employee.full_name)}
+              </div>
+              <div className="employee-identity-copy">
+                <p className="employee-kicker">
+                  <Link to="/employees">العودة إلى الموظفين</Link>
+                  {company ? ` — ${company.name}` : ''}
+                </p>
+                <h1>{employee.full_name}</h1>
+                <div className="employee-hero-meta">
+                  <span className={statusClass(employee.employment_status)}>
+                    {employmentStatusLabel[employee.employment_status]}
+                  </span>
+                  <span className="employee-chip">{employee.job_title || 'بدون مسمى'}</span>
+                  <span className="employee-chip">{branch ? branch.name : 'بدون فرع'}</span>
+                  {employee.employee_number ? (
+                    <span className="employee-chip">
+                      رقم <span className="num" dir="ltr">{employee.employee_number}</span>
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </div>
+            {(canManageEmployees || canDeleteEmployees) && (
+              <div className="branch-actions">
+                {canManageEmployees && (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setError('')
+                      setNotice('')
+                      setDraft(employeeToDraft(employee))
+                    }}
+                  >
+                    تعديل
+                  </button>
+                )}
+                {canDeleteEmployees && (
+                  <button type="button" className="btn btn-danger" onClick={() => setDeleteOpen(true)}>
+                    حذف
+                  </button>
+                )}
+              </div>
+            )}
           </section>
 
-          <section className="card">
-            <h2 className="card-title">الجواز</h2>
-            <div className="profile-grid">
-              <Field label="رقم الجواز" value={employee.passport_number || '—'} ltr />
-              <div className="profile-field">
-                <div className="profile-label">تاريخ الانتهاء</div>
-                <div className="profile-value">
-                  <ExpiryDate value={employee.passport_expiry_date} />
+          <div className="employee-pair">
+            <section className="card">
+              <h2 className="card-title">البيانات الأساسية</h2>
+              <div className="profile-grid">
+                <Field label="الرقم الوظيفي" value={employee.employee_number || '—'} />
+                <Field label="الاسم الكامل" value={employee.full_name} />
+                <Field label="الجنسية" value={employee.nationality || '—'} />
+                <Field label="الجوال" value={employee.mobile || '—'} ltr />
+                <Field label="البريد الإلكتروني" value={employee.email || '—'} ltr />
+              </div>
+            </section>
+
+            <section className="card">
+              <h2 className="card-title">بيانات العمل</h2>
+              <div className="profile-grid">
+                <Field label="الفرع" value={branch ? branch.name : 'بدون فرع'} />
+                <Field label="مدينة الفرع" value={branch?.city || '—'} />
+                <Field label="المسمى الوظيفي" value={employee.job_title || '—'} />
+                <div className="profile-field">
+                  <div className="profile-label">حالة التوظيف</div>
+                  <div className="profile-value">
+                    <span className={statusClass(employee.employment_status)}>
+                      {employmentStatusLabel[employee.employment_status]}
+                    </span>
+                  </div>
+                </div>
+                <Field label="تاريخ التعيين" value={formatEmployeeDate(employee.hire_date)} ltr />
+              </div>
+            </section>
+          </div>
+
+          <div className="employee-pair">
+            <section className="card">
+              <h2 className="card-title">الإقامة</h2>
+              <div className="profile-grid">
+                <Field label="رقم الإقامة" value={employee.iqama_number || '—'} ltr />
+                <div className={employee.iqama_expiry_date ? 'profile-field' : 'profile-field is-empty'}>
+                  <div className="profile-label">تاريخ الانتهاء</div>
+                  <div className="profile-value">
+                    <ExpiryDate value={employee.iqama_expiry_date} />
+                  </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </section>
+
+            <section className="card">
+              <h2 className="card-title">الجواز</h2>
+              <div className="profile-grid">
+                <Field label="رقم الجواز" value={employee.passport_number || '—'} ltr />
+                <div className={employee.passport_expiry_date ? 'profile-field' : 'profile-field is-empty'}>
+                  <div className="profile-label">تاريخ الانتهاء</div>
+                  <div className="profile-value">
+                    <ExpiryDate value={employee.passport_expiry_date} />
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
 
           <section className="card">
             <h2 className="card-title">ملاحظات</h2>
-            <p className={employee.notes ? 'profile-value' : 'note-line'}>{employee.notes || 'لا توجد ملاحظات'}</p>
+            <p className={employee.notes ? 'employee-notes' : 'note-line'}>{employee.notes || 'لا توجد ملاحظات'}</p>
           </section>
 
           <EmployeeDocuments employeeId={employee.id} />

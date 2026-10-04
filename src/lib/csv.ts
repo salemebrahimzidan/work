@@ -12,8 +12,27 @@ export function csvField(value: CsvValue): string {
   return `"${text.replace(/"/g, '""')}"`
 }
 
-export function toCsv(rows: CsvValue[][]): string {
-  return rows.map((row) => row.map(csvField).join(',')).join('\r\n')
+/** Excel follows the Windows list separator. Arabic (ar-SA) uses ";" even though the decimal mark is ".". */
+export function csvDelimiter(): ',' | ';' {
+  const languages = [
+    typeof document === 'undefined' ? '' : document.documentElement.lang,
+    ...(typeof navigator === 'undefined' ? [] : (navigator.languages ?? [navigator.language])),
+  ]
+  if (languages.some((language) => language.toLowerCase().startsWith('ar'))) return ';'
+  const sample = languages.find(Boolean)
+  try {
+    const decimal = new Intl.NumberFormat(sample || undefined)
+      .formatToParts(1.1)
+      .find((part) => part.type === 'decimal')?.value
+    if (decimal === ',') return ';'
+  } catch {
+    return ','
+  }
+  return ','
+}
+
+export function toCsv(rows: CsvValue[][], delimiter: ',' | ';' = csvDelimiter()): string {
+  return rows.map((row) => row.map(csvField).join(delimiter)).join('\r\n')
 }
 
 export function downloadCsv(filename: string, rows: CsvValue[][]): void {
