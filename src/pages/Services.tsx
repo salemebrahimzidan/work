@@ -359,8 +359,8 @@ export default function Services({ category }: { category: ServiceCategory }) {
       setError(
         /duplicate|unique|services_name_key/i.test(errorMessage(insertError))
           ? 'هذه الخدمة موجودة بالفعل'
-          : category === 'fawateer' && /services_category_check/i.test(errorMessage(insertError))
-            ? 'جدول سداد الفواتير غير جاهز. شغّل ملف 0019_service_fawateer.sql في Supabase ثم حدّث الصفحة.'
+          : /services_category_check/i.test(errorMessage(insertError))
+            ? 'نوع الخدمة غير جاهز في قاعدة البيانات. شغّل ملف 0033_service_catalog.sql في Supabase ثم حدّث الصفحة.'
             : errorMessage(insertError),
       )
       return
