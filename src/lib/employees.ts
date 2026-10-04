@@ -1,3 +1,4 @@
+import { formatRiyadhDate } from './format'
 import type { Employee, EmploymentStatus } from './types'
 
 export const employmentStatusLabel: Record<EmploymentStatus, string> = {
@@ -45,15 +46,6 @@ export interface EmployeeInput {
 }
 
 export type ExpiryKind = 'none' | 'ok' | 'soon' | 'expired'
-
-const dayFormatter = new Intl.DateTimeFormat('ar-SA', {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  numberingSystem: 'latn',
-  calendar: 'gregory',
-  timeZone: 'Asia/Riyadh',
-})
 
 export function emptyEmployeeDraft(): EmployeeDraft {
   return {
@@ -146,7 +138,7 @@ export function formatEmployeeDate(value: string | null | undefined): string {
   const day = value.slice(0, 10)
   const parsed = new Date(`${day}T12:00:00+03:00`)
   if (Number.isNaN(parsed.getTime())) return '—'
-  return dayFormatter.format(parsed)
+  return formatRiyadhDate(parsed)
 }
 
 export function expiryKind(value: string | null | undefined): ExpiryKind {
