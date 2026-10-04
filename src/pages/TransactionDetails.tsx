@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Ban } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { useCompany } from '../auth/CompanyProvider'
 import { TRANSACTION_DETAIL_COLUMNS, loadOfficeProfitMap } from '../lib/finance'
 import { errorMessage, formatDate, money, transactionStatus } from '../lib/format'
 import { supabase } from '../lib/supabase'
+import { DetailSkeleton } from '../components/LoadingSkeleton'
 import type { TransactionDetail } from '../lib/types'
 
 export default function TransactionDetails() {
@@ -44,7 +46,7 @@ export default function TransactionDetails() {
   }, [companyLoading, load])
 
   if (loading) {
-    return <div className="empty">جارٍ التحميل…</div>
+    return <DetailSkeleton />
   }
 
   if (error || !row) {
@@ -255,6 +257,7 @@ function StatusActions({ row, onChanged }: { row: TransactionDetail; onChanged: 
             setMode('cancel')
           }}
         >
+          <Ban size={16} strokeWidth={2} aria-hidden="true" />
           إلغاء المعاملة
         </button>
       )}

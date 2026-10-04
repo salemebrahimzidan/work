@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import DateField from './DateField'
+import { SkeletonRows } from './LoadingSkeleton'
 import SelectField from './SelectField'
 import { loadOfficeProfitMap } from '../lib/finance'
 import { supabase } from '../lib/supabase'
@@ -378,7 +379,9 @@ export default function TransactionReport({ canViewFinance }: { canViewFinance: 
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => {
+            {loading && rows.length === 0 ? (
+              <SkeletonRows columns={canViewFinance ? 7 : 6} />
+            ) : rows.map((row) => {
               const state = transactionStatus(row.status)
               return (
                 <tr key={row.id}>
@@ -410,7 +413,7 @@ export default function TransactionReport({ canViewFinance }: { canViewFinance: 
             })}
           </tbody>
         </table>
-        {rows.length === 0 && <div className="empty">{loading ? 'جارٍ التحميل…' : 'لا توجد معاملات مطابقة'}</div>}
+        {!loading && rows.length === 0 && <div className="empty">لا توجد معاملات مطابقة</div>}
       </div>
 
       <div className="tx-pager">

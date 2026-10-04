@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { count, errorMessage, formatDate, money } from '../lib/format'
 import { useAuth } from '../auth/AuthProvider'
 import type { CustomerSummary } from '../lib/types'
+import { SkeletonRows } from '../components/LoadingSkeleton'
 import Modal from '../components/Modal'
 import CustomerForm from '../components/CustomerForm'
 
@@ -126,7 +127,9 @@ export default function Customers() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => {
+            {loading && rows.length === 0 ? (
+              <SkeletonRows columns={isAdmin ? 6 : 7} />
+            ) : rows.map((row) => {
               const openCount = openCounts[row.id] ?? 0
               return (
               <tr key={row.id} className={openCount > 0 ? 'row-open' : undefined}>
@@ -157,9 +160,7 @@ export default function Customers() {
             })}
           </tbody>
         </table>
-        {rows.length === 0 && (
-          <div className="empty">{loading ? 'جارٍ التحميل…' : 'لا توجد نتائج'}</div>
-        )}
+        {!loading && rows.length === 0 && <div className="empty">لا توجد نتائج</div>}
       </div>
 
       <Modal title="إضافة عميل" open={addOpen} onClose={() => setAddOpen(false)}>

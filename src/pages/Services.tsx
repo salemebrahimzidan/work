@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { Navigate, useParams } from 'react-router-dom'
 import { useCompany } from '../auth/CompanyProvider'
@@ -706,21 +706,6 @@ export default function Services({ category }: { category: ServiceCategory }) {
   )
 }
 
-function pageStarts(heights: number[], available: number): number[] {
-  const starts = [0]
-  let used = 0
-  heights.forEach((height, index) => {
-    const rowHeight = Math.max(height, 1)
-    if (index > starts[starts.length - 1] && used + rowHeight > available + 1) {
-      starts.push(index)
-      used = rowHeight
-    } else {
-      used += rowHeight
-    }
-  })
-  return starts
-}
-
 function PriceRow({
   row,
   showPrices,
@@ -735,32 +720,36 @@ function PriceRow({
   onDelete?: (row: ServicePrice) => void
 }) {
   return (
-    <div className="price-row">
-      <div className="price-name">{row.name}</div>
+    <tr>
+      <td className="price-name">{row.name}</td>
       {showPrices &&
         (row.manual ? (
-          <p className="price-manual">تُدخل يدوياً عند إضافة المعاملة</p>
+          <td className="price-manual" colSpan={showCommission ? 2 : 1}>
+            تُدخل يدوياً عند إضافة المعاملة
+          </td>
         ) : (
           <>
-            <span className="price-value num">{amountField(row.transaction_value) || '—'}</span>
-            {showCommission && <span className="price-value num">{amountField(row.commission) || '—'}</span>}
+            <td className="price-value num">{amountField(row.transaction_value) || '—'}</td>
+            {showCommission && <td className="price-value num">{amountField(row.commission) || '—'}</td>}
           </>
         ))}
-      <div className="price-actions">
-        <button type="button" className="btn btn-primary btn-sm" onClick={() => onEdit?.(row)}>
-          تعديل الخدمة
-        </button>
-        <button
-          type="button"
-          className="btn btn-ghost btn-icon"
-          aria-label={`حذف ${row.name}`}
-          title="حذف"
-          onClick={() => onDelete?.(row)}
-        >
-          <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
-        </button>
-      </div>
-    </div>
+      <td>
+        <div className="price-actions">
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => onEdit?.(row)}>
+            تعديل الخدمة
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-icon"
+            aria-label={`حذف ${row.name}`}
+            title="حذف"
+            onClick={() => onDelete?.(row)}
+          >
+            <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
+          </button>
+        </div>
+      </td>
+    </tr>
   )
 }
 
@@ -779,74 +768,41 @@ function PriceSection({
   onEdit: (row: ServicePrice) => void
   onDelete: (row: ServicePrice) => void
 }) {
-  const [page, setPage] = useState(0)
-  const [breaks, setBreaks] = useState<number[]>([0])
-  const sheetRef = useRef<HTMLDivElement>(null)
-  const bodyRef = useRef<HTMLDivElement>(null)
-  const measureRef = useRef<HTMLDivElement>(null)
-  const previousCount = useRef(0)
-  const pageCount = breaks.length
-  const currentPage = Math.min(page, pageCount - 1)
-  const start = breaks[currentPage] ?? 0
-  const end = breaks[currentPage + 1] ?? rows.length
-  const visibleRows = rows.slice(start, end)
-
-  useLayoutEffect(() => {
-    if (rows.length === 0) {
-      setBreaks((current) => (current.length === 1 && current[0] === 0 ? current : [0]))
-      setPage(0)
-      previousCount.current = 0
-      return
-    }
-
-    const sheet = sheetRef.current
-    const body = bodyRef.current
-    const measure = measureRef.current
-    if (!sheet || !body || !measure) return
-    const priceSheet = sheet
-    const priceBody = body
-    const priceMeasure = measure
-
-    function layout() {
-      const narrow = window.matchMedia('(max-width: 800px)').matches
-      const grew = previousCount.current > 0 && rows.length > previousCount.current
-      previousCount.current = rows.length
-      if (narrow || priceBody.clientHeight <= 0) {
-        setBreaks((current) => (current.length === 1 && current[0] === 0 ? current : [0]))
-        setPage((current) => (grew ? 0 : current))
-        return
-      }
-      priceMeasure.style.width = `${priceSheet.clientWidth}px`
-      const heights = [...priceMeasure.querySelectorAll('.price-row')].map((row) => row.getBoundingClientRect().height)
-      const starts = pageStarts(heights, priceBody.clientHeight)
-      setBreaks((current) =>
-        current.length === starts.length && current.every((value, index) => value === starts[index]) ? current : starts,
-      )
-      setPage((current) => {
-        const last = Math.max(0, starts.length - 1)
-        if (grew) return last
-        return Math.min(current, last)
-      })
-    }
-
-    layout()
-    const observer = new ResizeObserver(layout)
-    observer.observe(body)
-    return () => observer.disconnect()
-  }, [rows, showCommission, showPrices])
-
-  const sheetClass = !showPrices
-    ? 'price-sheet price-sheet-name'
-    : showCommission
-      ? 'price-sheet'
-      : 'price-sheet price-sheet-safe'
-
   return (
     <section className="price-section">
-      <div className="card price-card">
-        {loading ? (
-          <div className="empty">جارٍ التحميل…</div>
-        ) : rows.length === 0 ? (
+      {loading ? (
+        <div className="table-wrap" aria-busy="true">
+          <table>
+            <PriceHead showPrices={showPrices} showCommission={showCommission} />
+            <tbody>
+                {Array.from({ length: 10 }, (_, index) => (
+                  <tr key={index}>
+                    <td>
+                      <span className="skeleton price-skeleton-name" />
+                    </td>
+                    {showPrices && (
+                      <td>
+                        <span className="skeleton price-skeleton-num" />
+                      </td>
+                    )}
+                    {showPrices && showCommission && (
+                      <td>
+                        <span className="skeleton price-skeleton-num" />
+                      </td>
+                    )}
+                    <td>
+                      <span className="price-skeleton-actions">
+                        <span className="skeleton price-skeleton-btn" />
+                        <span className="skeleton price-skeleton-icon" />
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="card">
           <div className="empty price-empty">
             <span className="price-empty-mark" aria-hidden="true">
               <Plus size={22} strokeWidth={2} />
@@ -854,16 +810,13 @@ function PriceSection({
             <strong>لا توجد خدمات</strong>
             <p>أضف أول خدمة في هذا القسم لتظهر عند إنشاء معاملة جديدة.</p>
           </div>
-        ) : (
-          <div ref={sheetRef} className={sheetClass}>
-            <div className="price-head">
-              <span>الخدمة</span>
-              {showPrices && <span>قيمة المعاملة (ر.س)</span>}
-              {showPrices && showCommission && <span>عمولة المكتب (ر.س)</span>}
-              <span />
-            </div>
-            <div className="price-body" ref={bodyRef}>
-              {visibleRows.map((row) => (
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <PriceHead showPrices={showPrices} showCommission={showCommission} />
+            <tbody>
+              {rows.map((row) => (
                 <PriceRow
                   key={row.id}
                   row={row}
@@ -873,57 +826,23 @@ function PriceSection({
                   onDelete={onDelete}
                 />
               ))}
-            </div>
-          </div>
-        )}
-        {rows.length > 0 && pageCount > 1 && (
-          <div className="price-pager">
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              disabled={currentPage === 0}
-              onClick={() => setPage(currentPage - 1)}
-            >
-              السابق
-            </button>
-            {Array.from({ length: pageCount }, (_, index) => (
-              <button
-                key={index}
-                type="button"
-                className={index === currentPage ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
-                onClick={() => setPage(index)}
-              >
-                {index + 1}
-              </button>
-            ))}
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              disabled={currentPage >= pageCount - 1}
-              onClick={() => setPage(currentPage + 1)}
-            >
-              التالي
-            </button>
-          </div>
-        )}
-        {rows.length > 0 && (
-          <div
-            ref={measureRef}
-            className={
-              !showPrices
-                ? 'price-measure price-measure-name'
-                : showCommission
-                  ? 'price-measure'
-                  : 'price-measure price-measure-safe'
-            }
-            aria-hidden="true"
-          >
-            {rows.map((row) => (
-              <PriceRow key={row.id} row={row} showPrices={showPrices} showCommission={showCommission} />
-            ))}
-          </div>
-        )}
-      </div>
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
+  )
+}
+
+function PriceHead({ showPrices, showCommission }: { showPrices: boolean; showCommission: boolean }) {
+  return (
+    <thead>
+      <tr>
+        <th>الخدمة</th>
+        {showPrices && <th>قيمة المعاملة (ر.س)</th>}
+        {showPrices && showCommission && <th>عمولة المكتب (ر.س)</th>}
+        <th>إجراءات</th>
+      </tr>
+    </thead>
   )
 }

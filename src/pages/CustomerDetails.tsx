@@ -6,6 +6,7 @@ import { TRANSACTION_DETAIL_COLUMNS, loadOfficeProfitMap } from '../lib/finance'
 import { supabase } from '../lib/supabase'
 import { count, errorMessage, formatDate, money } from '../lib/format'
 import type { Customer, TransactionDetail } from '../lib/types'
+import { DetailSkeleton } from '../components/LoadingSkeleton'
 import Modal from '../components/Modal'
 import CustomerForm from '../components/CustomerForm'
 import TransactionForm from '../components/TransactionForm'
@@ -160,7 +161,7 @@ export default function CustomerDetails() {
   }
 
   if (loading && !customer) {
-    return <p className="muted">جارٍ التحميل…</p>
+    return <DetailSkeleton />
   }
 
   if (!customer) {

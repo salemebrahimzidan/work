@@ -7,13 +7,14 @@ import { errorMessage, formatDate, linkedText, money, transactionStatus } from '
 import { useServicePrices } from '../lib/hooks'
 import { supabase } from '../lib/supabase'
 import type { TransactionDetail } from '../lib/types'
+import { SkeletonRows } from './LoadingSkeleton'
 import Modal from './Modal'
 
 interface Props {
   rows: TransactionDetail[]
   loading?: boolean
   showCustomer?: boolean
-  /** Transactions page: mobile, note indicator, and a stacked layout on small screens. */
+  /** Transactions page: phone under the customer, and a note badge instead of the full note. */
   officeLayout?: boolean
   emptyLabel?: string
   onChanged?: () => void
@@ -52,7 +53,11 @@ export default function TransactionsTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {loading && rows.length === 0 ? (
+              <SkeletonRows
+                columns={(showCustomer ? 1 : 0) + (canViewFinance ? 1 : 0) + 6}
+              />
+            ) : rows.map((row) => (
               <tr key={row.id}>
                 {showCustomer && (
                   <td data-label="العميل">
@@ -119,9 +124,7 @@ export default function TransactionsTable({
             ))}
           </tbody>
         </table>
-        {rows.length === 0 && (
-          <div className="empty">{loading ? 'جارٍ التحميل…' : emptyLabel}</div>
-        )}
+        {!loading && rows.length === 0 && <div className="empty">{emptyLabel}</div>}
       </div>
 
       <Modal title="الخطوات" subtitle={stepsRow?.service_name} center open={Boolean(stepsRow)} onClose={() => setStepsRow(null)}>

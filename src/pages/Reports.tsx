@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useCompany } from '../auth/CompanyProvider'
 import DateField from '../components/DateField'
+import { SkeletonStack, SkeletonTable } from '../components/LoadingSkeleton'
 import TransactionReport from '../components/TransactionReport'
 import { supabase } from '../lib/supabase'
 import { downloadCsv, type CsvValue } from '../lib/csv'
@@ -197,7 +198,7 @@ export default function Reports() {
       {exportError && <div className="alert alert-error">{exportError}</div>}
 
       {companyLoading ? (
-        <div className="empty">جارٍ التحميل…</div>
+        <SkeletonTable headers={['العميل', 'المدينة', 'الجنسية', 'المعاملات']} />
       ) : !company ? (
         <div className="empty">
           {ambiguous ? 'يوجد أكثر من شركة لهذا الحساب ولم تُحدَّد الشركة النشطة.' : 'لا توجد شركة نشطة لهذا الحساب.'}
@@ -269,7 +270,7 @@ function CustomerReport({
   )
   const { invalidRange, rangeLimited, summary, byCity, byNationality, byService, byStatus } = report
 
-  if (loading) return <div className="empty">جارٍ التحميل…</div>
+  if (loading) return <SkeletonStack count={5} />
   if (error) return <div className="alert alert-error">{error}</div>
 
   return (
