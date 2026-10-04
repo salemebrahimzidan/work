@@ -167,6 +167,7 @@ export default function Services({ category }: { category: ServiceCategory }) {
   const [newName, setNewName] = useState('')
   const [newValue, setNewValue] = useState('')
   const [newCommission, setNewCommission] = useState('')
+  const commissionAuto = useRef(false)
   const [newSteps, setNewSteps] = useState('')
   const [categoryReady, setCategoryReady] = useState(true)
   const [stepsReady, setStepsReady] = useState(true)
@@ -408,7 +409,7 @@ export default function Services({ category }: { category: ServiceCategory }) {
           : /services_biller_category_check/i.test(errorMessage(insertError))
             ? 'فئة المفوتر غير جاهزة. شغّل ملف 0035_fawateer_biller_categories.sql في Supabase ثم حدّث الصفحة.'
           : /services_category_check/i.test(errorMessage(insertError))
-            ? 'نوع الخدمة غير جاهز في قاعدة البيانات. شغّل ملف 0033_service_catalog.sql في Supabase ثم حدّث الصفحة.'
+            ? 'نوع الخدمة غير جاهز في قاعدة البيانات. شغّل ملف 0039_taqdeem_service_category.sql في Supabase ثم حدّث الصفحة.'
             : errorMessage(insertError),
       )
       return
@@ -417,6 +418,7 @@ export default function Services({ category }: { category: ServiceCategory }) {
     setNewName('')
     setNewValue('')
     setNewCommission('')
+    commissionAuto.current = false
     setNewSteps('')
     setAddingOpen(false)
     void load()
@@ -426,6 +428,7 @@ export default function Services({ category }: { category: ServiceCategory }) {
     setNewName('')
     setNewValue('')
     setNewCommission('')
+    commissionAuto.current = false
     setNewSteps('')
     setError('')
     setAddingOpen(true)
@@ -536,7 +539,16 @@ export default function Services({ category }: { category: ServiceCategory }) {
                 const value = event.target.value
                 setNewValue(value)
                 const amount = Number(value)
+                if (commissionAuto.current && (value === '' || (Number.isFinite(amount) && amount > 750))) {
+                  commissionAuto.current = false
+                  setNewCommission('')
+                }
+              }}
+              onBlur={(event) => {
+                const value = event.currentTarget.value
+                const amount = Number(value)
                 if (value !== '' && Number.isFinite(amount) && amount >= 0 && amount <= 750) {
+                  commissionAuto.current = true
                   setNewCommission('10')
                 }
               }}
@@ -554,7 +566,10 @@ export default function Services({ category }: { category: ServiceCategory }) {
                 inputMode="decimal"
                 placeholder="0"
                 value={newCommission}
-                onChange={(event) => setNewCommission(event.target.value)}
+                onChange={(event) => {
+                  commissionAuto.current = false
+                  setNewCommission(event.target.value)
+                }}
               />
             </div>
           )}
