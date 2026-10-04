@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { errorMessage, linkedText } from '../lib/format'
 import { useAuth } from '../auth/AuthProvider'
 import { useCompany } from '../auth/CompanyProvider'
-import { loadServiceCommissionMap } from '../lib/finance'
+import { loadServiceCommissionMap, loadServiceQuoteCommissionMap } from '../lib/finance'
 import { useCustomerOptions, useServicePrices } from '../lib/hooks'
 import { isServiceCategory, serviceCategories, serviceCategoryLabel, type ServiceCategory } from '../lib/types'
 import Modal from './Modal'
@@ -23,7 +23,7 @@ interface Props {
 
 export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: Props) {
   const { session } = useAuth()
-  const { canViewFinance, loading: companyLoading } = useCompany()
+  const { canViewFinance, canViewServiceQuoteCommission, loading: companyLoading } = useCompany()
   const customers = useCustomerOptions()
   const { services } = useServicePrices()
   const [commissions, setCommissions] = useState<Record<string, string | null>>({})
@@ -41,13 +41,14 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
 
   useEffect(() => {
     if (companyLoading) return
-    if (!canViewFinance) {
+    if (!canViewServiceQuoteCommission) {
       setCommissions({})
       setCommission('')
       return
     }
     let active = true
-    loadServiceCommissionMap()
+    const loadFees = canViewFinance ? loadServiceCommissionMap : loadServiceQuoteCommissionMap
+    loadFees()
       .then((fees) => {
         if (active) setCommissions(fees)
       })
@@ -57,7 +58,7 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
     return () => {
       active = false
     }
-  }, [canViewFinance, companyLoading])
+  }, [canViewFinance, canViewServiceQuoteCommission, companyLoading])
 
   const serviceNames =
     serviceCategory === '' ? [] : services.filter((item) => item.category === serviceCategory).map((item) => item.name)
@@ -65,15 +66,15 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
     services.find((item) => item.name === serviceName && item.category === serviceCategory) ?? null
 
   useEffect(() => {
-    if (!canViewFinance || !selectedService || selectedService.manual) return
+    if (!canViewServiceQuoteCommission || !selectedService || selectedService.manual) return
     const value = amountField(selectedService.transaction_value)
     const fee = amountField(commissions[selectedService.id])
-    if (value === '' || fee === '') return
+    if (value === '' || (canViewFinance && fee === '')) return
     setMissingPrice(false)
     setFromSystem(true)
     setTransactionValue(value)
     setCommission(fee)
-  }, [canViewFinance, commissions, selectedService])
+  }, [canViewFinance, canViewServiceQuoteCommission, commissions, selectedService])
 
   function selectCategory(value: string) {
     setServiceCategory(isServiceCategory(value) ? value : '')
@@ -112,7 +113,7 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
       return
     }
     const value = amountField(service.transaction_value)
-    const fee = canViewFinance ? amountField(commissions[service.id]) : ''
+    const fee = canViewServiceQuoteCommission ? amountField(commissions[service.id]) : ''
     if (value === '' || (canViewFinance && fee === '')) {
       setFromSystem(false)
       setMissingPrice(true)
@@ -123,7 +124,7 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
     setMissingPrice(false)
     setFromSystem(true)
     setTransactionValue(value)
-    setCommission(canViewFinance ? fee : '')
+    setCommission(fee)
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -252,18 +253,16 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
           />
         </div>
 
-        {canViewFinance && (
+        {canViewServiceQuoteCommission && (
           <div className="field">
-            <label htmlFor="commission">عمولة المكتب (ر.س) *</label>
+            <label htmlFor="commission">عمولة المكتب (ر.س)</label>
             <input
               id="commission"
               disabled
+              readOnly
               dir="ltr"
-              type="number"
-              min="0"
-              step="0.01"
-              inputMode="decimal"
-              value={commission}
+              type="text"
+              value={commission || '—'}
             />
           </div>
         )}
@@ -273,7 +272,7 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
             {fromSystem
               ? canViewFinance
                 ? 'قيمة المعاملة وعمولة المكتب تُعبأ تلقائياً من أسعار الخدمة.'
-                : 'قيمة المعاملة تُعبأ تلقائياً من أسعار الخدمة.'
+                : 'قيمة المعاملة وعمولة المكتب تُعرضان من أسعار الخدمة لتسعير العميل.'
               : 'سعر هذه الخدمة غير محدد بعد. يضيفه المشرف من صفحة أسعار الخدمات.'}
           </p>
         )}

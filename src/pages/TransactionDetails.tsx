@@ -168,54 +168,63 @@ function StatusActions({ row, onChanged }: { row: TransactionDetail; onChanged: 
     await changeStatus('cancelled', reason.trim())
   }
 
+  const steps = [
+    { key: 'pending', label: 'قيد الانتظار' },
+    { key: 'in_progress', label: 'قيد التنفيذ' },
+    { key: 'completed', label: 'مكتملة' },
+  ]
+  const currentIndex = row.status === 'in_progress' ? 1 : 0
+  const next =
+    row.status === 'in_progress'
+      ? {
+          status: 'completed' as const,
+          title: 'مكتملة',
+          hint: 'إنهاء المعاملة وحفظها مكتملة',
+          action: 'إنهاء المعاملة',
+          tone: 'complete',
+        }
+      : {
+          status: 'in_progress' as const,
+          title: 'قيد التنفيذ',
+          hint: 'بدء العمل على المعاملة',
+          action: 'بدء التنفيذ',
+          tone: 'progress',
+        }
+
   return (
     <div className="card">
       <h2 className="card-title">تغيير الحالة</h2>
       {error && <div className="alert alert-error">{error}</div>}
-      <div className="status-panel">
-        {row.status === 'pending' && (
-          <button
-            type="button"
-            className="status-choice progress"
-            disabled={busy}
-            onClick={() => {
-              setMode(null)
-              void changeStatus('in_progress')
-            }}
+      <ol className="status-path" aria-label="مسار المعاملة">
+        {steps.map((step, index) => (
+          <li
+            key={step.key}
+            className={index < currentIndex ? 'is-done' : index === currentIndex ? 'is-current' : 'is-next'}
+            aria-current={index === currentIndex ? 'step' : undefined}
           >
-            <strong>قيد التنفيذ</strong>
-            <small>بدء العمل على المعاملة</small>
-          </button>
-        )}
-        {row.status === 'in_progress' && (
-          <button
-            type="button"
-            className="status-choice complete"
-            disabled={busy}
-            onClick={() => {
-              setMode(null)
-              void changeStatus('completed')
-            }}
-          >
-            <strong>مكتملة</strong>
-            <small>إنهاء المعاملة وحفظها مكتملة</small>
-          </button>
-        )}
+            <span className="status-path-mark" aria-hidden="true" />
+            {step.label}
+          </li>
+        ))}
+      </ol>
+      <div className={`status-next ${next.tone}`}>
+        <div>
+          <strong>{next.title}</strong>
+          <small>{next.hint}</small>
+        </div>
         <button
           type="button"
-          className={mode === 'cancel' ? 'status-choice cancel is-selected' : 'status-choice cancel'}
+          className="btn btn-primary"
           disabled={busy}
           onClick={() => {
-            setError('')
-            setMode('cancel')
+            setMode(null)
+            void changeStatus(next.status)
           }}
         >
-          <strong>ملغاة</strong>
-          <small>إلغاء المعاملة مع ذكر السبب</small>
+          {next.action}
         </button>
       </div>
-
-      {mode === 'cancel' && (
+      {mode === 'cancel' ? (
         <form className="status-cancel-form" onSubmit={(event) => void confirmCancel(event)}>
           <div className="field">
             <label htmlFor="cancel-reason">سبب الإلغاء *</label>
@@ -236,6 +245,18 @@ function StatusActions({ row, onChanged }: { row: TransactionDetail; onChanged: 
             </button>
           </div>
         </form>
+      ) : (
+        <button
+          type="button"
+          className="status-cancel-link"
+          disabled={busy}
+          onClick={() => {
+            setError('')
+            setMode('cancel')
+          }}
+        >
+          إلغاء المعاملة
+        </button>
       )}
     </div>
   )

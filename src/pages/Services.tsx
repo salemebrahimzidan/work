@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Plus, Trash2 } from 'lucide-react'
 import { useCompany } from '../auth/CompanyProvider'
-import { loadServiceCommissionMap } from '../lib/finance'
+import { loadServiceCommissionMap, loadServiceQuoteCommissionMap } from '../lib/finance'
 import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/format'
 import { asServiceCategory, serviceCategoryLabel, type ServiceCategory, type ServicePrice } from '../lib/types'
@@ -146,7 +146,7 @@ function StepsField({
 }
 
 export default function Services({ category }: { category: ServiceCategory }) {
-  const { canViewFinance, loading: companyLoading } = useCompany()
+  const { canViewFinance, canViewServiceQuoteCommission, loading: companyLoading } = useCompany()
   const [rows, setRows] = useState<ServicePrice[]>([])
   const [drafts, setDrafts] = useState<
     Record<string, { name: string; transaction_value: string; commission: string; steps: string }>
@@ -215,9 +215,11 @@ export default function Services({ category }: { category: ServiceCategory }) {
         category: asServiceCategory(row.category),
         steps: row.steps?.trim() ? row.steps : null,
       }))
-      if (canViewFinance) {
+      if (canViewServiceQuoteCommission) {
         try {
-          const fees = await loadServiceCommissionMap()
+          const fees = canViewFinance
+            ? await loadServiceCommissionMap()
+            : await loadServiceQuoteCommissionMap()
           for (const row of list) row.commission = fees[row.id] ?? null
         } catch (feeError) {
           setError(errorMessage(feeError))
@@ -239,7 +241,7 @@ export default function Services({ category }: { category: ServiceCategory }) {
       )
     }
     setLoading(false)
-  }, [canViewFinance])
+  }, [canViewFinance, canViewServiceQuoteCommission])
 
   useEffect(() => {
     if (companyLoading) return
@@ -409,30 +411,34 @@ export default function Services({ category }: { category: ServiceCategory }) {
 
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1>{serviceCategoryLabel[category]}</h1>
-          <p className="page-sub">
-            عند اختيار الخدمة في معاملة جديدة تُعبأ قيمة المعاملة وعمولة المكتب من هنا.
-          </p>
-          {category !== 'sdad' && !categoryReady && (
-            <p className="page-sub">شغّل ملف 0017_service_category.sql في Supabase ثم حدّث الصفحة حتى تُحفظ هذه الخدمات.</p>
-          )}
+      <div className="services-page">
+        <div className="page-head">
+          <div>
+            <h1>{serviceCategoryLabel[category]}</h1>
+            <p className="page-sub">
+              عند اختيار الخدمة في معاملة جديدة تُعبأ قيمة المعاملة وعمولة المكتب من هنا.
+            </p>
+            {category !== 'sdad' && !categoryReady && (
+              <p className="page-sub">شغّل ملف 0017_service_category.sql في Supabase ثم حدّث الصفحة حتى تُحفظ هذه الخدمات.</p>
+            )}
+          </div>
+          <button type="button" className="btn btn-primary" onClick={openAdd}>
+            إضافة خدمة
+          </button>
         </div>
-        <button type="button" className="btn btn-primary" onClick={openAdd}>
-          إضافة خدمة
-        </button>
+
+        {error && !addingOpen && !editing && <div className="alert alert-error">{error}</div>}
+
+        <PriceSection
+          key={category}
+          rows={rows.filter((row) => row.category === category)}
+          loading={loading && rows.length === 0}
+          showCommission={canViewServiceQuoteCommission}
+          onAdd={openAdd}
+          onEdit={openEdit}
+          onDelete={setDeleting}
+        />
       </div>
-
-      {error && !addingOpen && !editing && <div className="alert alert-error">{error}</div>}
-
-      <PriceSection
-        rows={rows.filter((row) => row.category === category)}
-        loading={loading && rows.length === 0}
-        showCommission={canViewFinance}
-        onEdit={openEdit}
-        onDelete={setDeleting}
-      />
 
       <Modal
         title={category === 'taqeeb' ? 'خدمة جديدة' : `خدمة ${serviceCategoryLabel[category]} جديدة`}
@@ -529,7 +535,7 @@ export default function Services({ category }: { category: ServiceCategory }) {
                       onChange={(event) => setDraft(editing.id, 'transaction_value', event.target.value)}
                     />
                   </div>
-                  {canViewFinance && (
+                  {canViewFinance ? (
                     <div className="field">
                       <label htmlFor="edit-service-commission">عمولة المكتب (ر.س)</label>
                       <input
@@ -543,7 +549,19 @@ export default function Services({ category }: { category: ServiceCategory }) {
                         onChange={(event) => setDraft(editing.id, 'commission', event.target.value)}
                       />
                     </div>
-                  )}
+                  ) : canViewServiceQuoteCommission ? (
+                    <div className="field">
+                      <label htmlFor="edit-service-commission">عمولة المكتب (ر.س)</label>
+                      <input
+                        id="edit-service-commission"
+                        disabled
+                        readOnly
+                        dir="ltr"
+                        type="text"
+                        value={amountField(editing.commission) || '—'}
+                      />
+                    </div>
+                  ) : null}
                 </>
               )}
               <div className="field">
@@ -600,36 +618,131 @@ export default function Services({ category }: { category: ServiceCategory }) {
   )
 }
 
-const PAGE_SIZE = 12
+function pageStarts(heights: number[], available: number): number[] {
+  const starts = [0]
+  let used = 0
+  heights.forEach((height, index) => {
+    const rowHeight = Math.max(height, 1)
+    if (index > starts[starts.length - 1] && used + rowHeight > available + 1) {
+      starts.push(index)
+      used = rowHeight
+    } else {
+      used += rowHeight
+    }
+  })
+  return starts
+}
+
+function PriceRow({
+  row,
+  showCommission,
+  onEdit,
+  onDelete,
+}: {
+  row: ServicePrice
+  showCommission: boolean
+  onEdit?: (row: ServicePrice) => void
+  onDelete?: (row: ServicePrice) => void
+}) {
+  return (
+    <div className="price-row">
+      <div className="price-name">{row.name}</div>
+      {row.manual ? (
+        <p className="price-manual">تُدخل يدوياً عند إضافة المعاملة</p>
+      ) : (
+        <>
+          <span className="price-value num">{amountField(row.transaction_value) || '—'}</span>
+          {showCommission && <span className="price-value num">{amountField(row.commission) || '—'}</span>}
+        </>
+      )}
+      <div className="price-actions">
+        <button type="button" className="btn btn-primary btn-sm" onClick={() => onEdit?.(row)}>
+          تعديل الخدمة
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost btn-icon"
+          aria-label={`حذف ${row.name}`}
+          title="حذف"
+          onClick={() => onDelete?.(row)}
+        >
+          <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function PriceSection({
   rows,
   loading,
   showCommission,
+  onAdd,
   onEdit,
   onDelete,
 }: {
   rows: ServicePrice[]
   loading: boolean
   showCommission: boolean
+  onAdd: () => void
   onEdit: (row: ServicePrice) => void
   onDelete: (row: ServicePrice) => void
 }) {
   const [page, setPage] = useState(0)
-  const previousCount = useRef(rows.length)
-  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
+  const [breaks, setBreaks] = useState<number[]>([0])
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const measureRef = useRef<HTMLDivElement>(null)
+  const previousCount = useRef(0)
+  const pageCount = breaks.length
   const currentPage = Math.min(page, pageCount - 1)
-  const visibleRows = rows.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE)
+  const start = breaks[currentPage] ?? 0
+  const end = breaks[currentPage + 1] ?? rows.length
+  const visibleRows = rows.slice(start, end)
 
-  useEffect(() => {
-    const alreadyLoaded = previousCount.current > 0
-    if (alreadyLoaded && rows.length > previousCount.current) {
-      setPage(Math.max(0, Math.ceil(rows.length / PAGE_SIZE) - 1))
-    } else {
-      setPage((current) => Math.min(current, Math.max(0, Math.ceil(rows.length / PAGE_SIZE) - 1)))
+  useLayoutEffect(() => {
+    if (rows.length === 0) {
+      setBreaks((current) => (current.length === 1 && current[0] === 0 ? current : [0]))
+      setPage(0)
+      previousCount.current = 0
+      return
     }
-    previousCount.current = rows.length
-  }, [rows.length])
+
+    const sheet = sheetRef.current
+    const body = bodyRef.current
+    const measure = measureRef.current
+    if (!sheet || !body || !measure) return
+    const priceSheet = sheet
+    const priceBody = body
+    const priceMeasure = measure
+
+    function layout() {
+      const narrow = window.matchMedia('(max-width: 800px)').matches
+      const grew = previousCount.current > 0 && rows.length > previousCount.current
+      previousCount.current = rows.length
+      if (narrow || priceBody.clientHeight <= 0) {
+        setBreaks((current) => (current.length === 1 && current[0] === 0 ? current : [0]))
+        setPage((current) => (grew ? 0 : current))
+        return
+      }
+      priceMeasure.style.width = `${priceSheet.clientWidth}px`
+      const heights = [...priceMeasure.querySelectorAll('.price-row')].map((row) => row.getBoundingClientRect().height)
+      const starts = pageStarts(heights, priceBody.clientHeight)
+      setBreaks((current) =>
+        current.length === starts.length && current.every((value, index) => value === starts[index]) ? current : starts,
+      )
+      setPage((current) => {
+        const last = Math.max(0, starts.length - 1)
+        if (grew) return last
+        return Math.min(current, last)
+      })
+    }
+
+    layout()
+    const observer = new ResizeObserver(layout)
+    observer.observe(body)
+    return () => observer.disconnect()
+  }, [rows, showCommission])
 
   return (
     <section className="price-section">
@@ -637,47 +750,35 @@ function PriceSection({
         {loading ? (
           <div className="empty">جارٍ التحميل…</div>
         ) : rows.length === 0 ? (
-          <div className="empty">لا توجد خدمات</div>
+          <div className="empty price-empty">
+            <span className="price-empty-mark" aria-hidden="true">
+              <Plus size={22} strokeWidth={2} />
+            </span>
+            <strong>لا توجد خدمات</strong>
+            <p>أضف أول خدمة في هذا القسم لتظهر عند إنشاء معاملة جديدة.</p>
+            <button type="button" className="btn btn-primary" onClick={onAdd}>
+              إضافة خدمة
+            </button>
+          </div>
         ) : (
-          <div className={showCommission ? 'price-sheet' : 'price-sheet price-sheet-safe'}>
+          <div
+            ref={sheetRef}
+            className={showCommission ? 'price-sheet' : 'price-sheet price-sheet-safe'}
+          >
             <div className="price-head">
               <span>الخدمة</span>
               <span>قيمة المعاملة (ر.س)</span>
               {showCommission && <span>عمولة المكتب (ر.س)</span>}
               <span />
             </div>
-            {visibleRows.map((row) => (
-              <div className="price-row" key={row.id}>
-                <div className="price-name">{row.name}</div>
-                {row.manual ? (
-                  <p className="price-manual">تُدخل يدوياً عند إضافة المعاملة</p>
-                ) : (
-                  <>
-                    <span className="price-value num">{amountField(row.transaction_value) || '—'}</span>
-                    {showCommission && (
-                      <span className="price-value num">{amountField(row.commission) || '—'}</span>
-                    )}
-                  </>
-                )}
-                <div className="price-actions">
-                  <button type="button" className="btn btn-primary btn-sm" onClick={() => onEdit(row)}>
-                    تعديل الخدمة
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-icon"
-                    aria-label={`حذف ${row.name}`}
-                    title="حذف"
-                    onClick={() => onDelete(row)}
-                  >
-                    <Trash2 size={16} strokeWidth={2} aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
-            ))}
+            <div className="price-body" ref={bodyRef}>
+              {visibleRows.map((row) => (
+                <PriceRow key={row.id} row={row} showCommission={showCommission} onEdit={onEdit} onDelete={onDelete} />
+              ))}
+            </div>
           </div>
         )}
-        {rows.length > PAGE_SIZE && (
+        {rows.length > 0 && pageCount > 1 && (
           <div className="price-pager">
             <button
               type="button"
@@ -705,6 +806,17 @@ function PriceSection({
             >
               التالي
             </button>
+          </div>
+        )}
+        {rows.length > 0 && (
+          <div
+            ref={measureRef}
+            className={showCommission ? 'price-measure' : 'price-measure price-measure-safe'}
+            aria-hidden="true"
+          >
+            {rows.map((row) => (
+              <PriceRow key={row.id} row={row} showCommission={showCommission} />
+            ))}
           </div>
         )}
       </div>
