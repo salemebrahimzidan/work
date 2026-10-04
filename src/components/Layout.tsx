@@ -2,7 +2,6 @@ import { Fragment } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { useCompany } from '../auth/CompanyProvider'
-import NotificationBell from './NotificationBell'
 
 const links = [
   { to: '/', label: 'لوحة التحكم', admin: true },
@@ -44,7 +43,6 @@ export default function Layout() {
             <span className="brand-mark">ع</span>
             <span>إدارة العملاء</span>
           </div>
-          <NotificationBell />
         </div>
 
         <nav className="nav">
@@ -70,35 +68,6 @@ export default function Layout() {
                 )}
               </Fragment>
             ))}
-          <span className="nav-label">الشركة</span>
-          <Link
-            to="/company"
-            className={linkClass(isMainActive('/company'))}
-            aria-current={isMainActive('/company') ? 'page' : undefined}
-          >
-            إعدادات الشركة
-          </Link>
-          <Link
-            to="/branches"
-            className={linkClass(isMainActive('/branches'))}
-            aria-current={isMainActive('/branches') ? 'page' : undefined}
-          >
-            الفروع
-          </Link>
-          <Link
-            to="/employees"
-            className={linkClass(isMainActive('/employees'))}
-            aria-current={isMainActive('/employees') ? 'page' : undefined}
-          >
-            الموظفين
-          </Link>
-          <Link
-            to="/tasks"
-            className={linkClass(isMainActive('/tasks'))}
-            aria-current={isMainActive('/tasks') ? 'page' : undefined}
-          >
-            المهام
-          </Link>
           {canViewReports && (
             <Link
               to="/reports"

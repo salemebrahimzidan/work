@@ -4,18 +4,6 @@ import { supabase } from '../lib/supabase'
 import { errorMessage } from '../lib/format'
 import type { CompanyInfo, CompanyRole, CompanyStatus } from '../lib/types'
 
-export const companyRoleLabel: Record<CompanyRole, string> = {
-  owner: 'مالك',
-  admin: 'مشرف',
-  manager: 'مدير',
-  user: 'مستخدم',
-}
-
-export const companyStatusLabel: Record<CompanyStatus, string> = {
-  active: 'نشطة',
-  suspended: 'موقوفة',
-}
-
 interface CompanyValue {
   company: CompanyInfo | null
   role: CompanyRole | null
@@ -23,13 +11,6 @@ interface CompanyValue {
   error: string
   /** More than one company is visible and none is selected as active. */
   ambiguous: boolean
-  canManageBranches: boolean
-  canManageEmployees: boolean
-  canDeleteEmployees: boolean
-  canManageDocuments: boolean
-  canDeleteDocuments: boolean
-  canManageTasks: boolean
-  canDeleteTasks: boolean
   canViewReports: boolean
   canViewFinance: boolean
   reload: () => Promise<void>
@@ -109,13 +90,6 @@ export function CompanyProvider({ userId, children }: { userId: string; children
       loading,
       error,
       ambiguous,
-      canManageBranches: role === 'owner' || role === 'admin',
-      canManageEmployees: role === 'owner' || role === 'admin' || role === 'manager',
-      canDeleteEmployees: role === 'owner' || role === 'admin',
-      canManageDocuments: role === 'owner' || role === 'admin' || role === 'manager',
-      canDeleteDocuments: role === 'owner' || role === 'admin',
-      canManageTasks: role === 'owner' || role === 'admin' || role === 'manager',
-      canDeleteTasks: role === 'owner' || role === 'admin',
       canViewReports: role === 'owner' || role === 'admin' || role === 'manager',
       canViewFinance: role === 'owner' || role === 'admin',
       reload,

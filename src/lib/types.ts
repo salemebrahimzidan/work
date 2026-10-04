@@ -10,35 +10,6 @@ export interface CompanyInfo {
   status: CompanyStatus
 }
 
-export interface Branch {
-  id: string
-  name: string
-  code: string | null
-  city: string | null
-  phone: string | null
-  is_active: boolean
-}
-
-export type EmploymentStatus = 'active' | 'inactive' | 'vacation' | 'terminated'
-
-export interface Employee {
-  id: string
-  employee_number: string | null
-  full_name: string
-  nationality: string | null
-  mobile: string | null
-  email: string | null
-  branch_id: string | null
-  job_title: string | null
-  employment_status: EmploymentStatus
-  hire_date: string | null
-  iqama_number: string | null
-  iqama_expiry_date: string | null
-  passport_number: string | null
-  passport_expiry_date: string | null
-  notes: string | null
-}
-
 export interface Profile {
   id: string
   full_name: string | null

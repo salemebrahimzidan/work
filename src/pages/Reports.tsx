@@ -1,69 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useCompany } from '../auth/CompanyProvider'
 import DateField from '../components/DateField'
-import SelectField from '../components/SelectField'
 import { supabase } from '../lib/supabase'
 import { downloadCsv, type CsvValue } from '../lib/csv'
 import { count, transactionStatus } from '../lib/format'
-import type { EmploymentStatus } from '../lib/types'
-import {
-  EMPLOYMENT_STATUSES,
-  employmentStatusLabel,
-  expiryKind,
-} from '../lib/employees'
-import {
-  dueBucket,
-  TASK_PRIORITIES,
-  TASK_STATUSES,
-  taskPriorityLabel,
-  taskStatusLabel,
-  type TaskPriority,
-  type TaskStatus,
-} from '../lib/tasks'
 
-const EMPLOYEE_COLUMNS = 'id, branch_id, nationality, employment_status, iqama_expiry_date, passport_expiry_date'
-const DOCUMENT_COLUMNS = 'employee_id, expiry_date'
-const TASK_COLUMNS = 'branch_id, status, priority, due_date'
-const BRANCH_COLUMNS = 'id, name'
 const CUSTOMER_COLUMNS = 'id, city, nationality, created_at'
 const TRANSACTION_COLUMNS = 'customer_id, service_name, status, created_at'
-const LOAD_ERROR = 'تعذر تحميل التقارير'
 const CUSTOMER_LOAD_ERROR = 'تعذر تحميل تقرير العملاء'
-const NO_BRANCH = 'بدون فرع'
 const NO_NATIONALITY = 'بدون جنسية'
 const NO_CITY = 'بدون مدينة'
 const NO_SERVICE = 'بدون خدمة'
 const RIYADH_TZ = 'Asia/Riyadh'
 const TX_STATUSES = ['pending', 'in_progress', 'completed', 'cancelled'] as const
 
-type ReportArea = 'operations' | 'customers'
 type TxStatus = (typeof TX_STATUSES)[number]
-
-interface BranchRow {
-  id: string
-  name: string
-}
-
-interface EmployeeRow {
-  id: string
-  branch_id: string | null
-  nationality: string | null
-  employment_status: EmploymentStatus
-  iqama_expiry_date: string | null
-  passport_expiry_date: string | null
-}
-
-interface DocumentRow {
-  employee_id: string
-  expiry_date: string | null
-}
-
-interface TaskRow {
-  branch_id: string | null
-  status: TaskStatus
-  priority: TaskPriority
-  due_date: string | null
-}
 
 interface CustomerRow {
   id: string
@@ -97,34 +48,8 @@ function inDayRange(day: string, from: string, to: string): boolean {
   return true
 }
 
-function asStatus(value: string): EmploymentStatus {
-  if (value === 'inactive' || value === 'vacation' || value === 'terminated') return value
-  return 'active'
-}
-
-function asTaskStatus(value: string): TaskStatus {
-  if (value === 'in_progress' || value === 'completed' || value === 'cancelled') return value
-  return 'open'
-}
-
-function asPriority(value: string): TaskPriority {
-  if (value === 'low' || value === 'high' || value === 'urgent') return value
-  return 'normal'
-}
-
 export default function Reports() {
   const { company, role, loading: companyLoading, error: companyError, ambiguous, canViewReports } = useCompany()
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [branches, setBranches] = useState<BranchRow[]>([])
-  const [employees, setEmployees] = useState<EmployeeRow[]>([])
-  const [documents, setDocuments] = useState<DocumentRow[]>([])
-  const [tasks, setTasks] = useState<TaskRow[]>([])
-  const [branchFilter, setBranchFilter] = useState('')
-  const [employmentFilter, setEmploymentFilter] = useState('')
-  const [taskStatusFilter, setTaskStatusFilter] = useState('')
-  const [taskPriorityFilter, setTaskPriorityFilter] = useState('')
-  const [area, setArea] = useState<ReportArea>('operations')
   const [customerLoading, setCustomerLoading] = useState(true)
   const [customerError, setCustomerError] = useState('')
   const [customers, setCustomers] = useState<CustomerRow[]>([])
@@ -132,53 +57,6 @@ export default function Reports() {
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [exportError, setExportError] = useState('')
-
-  const load = useCallback(async () => {
-    if (!company || !canViewReports) {
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    setError('')
-    const [branchRes, employeeRes, documentRes, taskRes] = await Promise.all([
-      supabase.from('branches').select(BRANCH_COLUMNS).order('name'),
-      supabase.from('employees').select(EMPLOYEE_COLUMNS),
-      supabase.from('employee_documents').select(DOCUMENT_COLUMNS),
-      supabase.from('tasks').select(TASK_COLUMNS),
-    ])
-    const failure = branchRes.error || employeeRes.error || documentRes.error || taskRes.error
-    if (failure) {
-      setError(LOAD_ERROR)
-      setLoading(false)
-      return
-    }
-    setBranches((branchRes.data ?? []).map((row) => ({ id: String(row.id), name: String(row.name ?? '') })))
-    setEmployees(
-      (employeeRes.data ?? []).map((row) => ({
-        id: String(row.id),
-        branch_id: (row.branch_id as string | null) ?? null,
-        nationality: (row.nationality as string | null) ?? null,
-        employment_status: asStatus(String(row.employment_status ?? 'active')),
-        iqama_expiry_date: (row.iqama_expiry_date as string | null) ?? null,
-        passport_expiry_date: (row.passport_expiry_date as string | null) ?? null,
-      })),
-    )
-    setDocuments(
-      (documentRes.data ?? []).map((row) => ({
-        employee_id: String(row.employee_id),
-        expiry_date: (row.expiry_date as string | null) ?? null,
-      })),
-    )
-    setTasks(
-      (taskRes.data ?? []).map((row) => ({
-        branch_id: (row.branch_id as string | null) ?? null,
-        status: asTaskStatus(String(row.status ?? 'open')),
-        priority: asPriority(String(row.priority ?? 'normal')),
-        due_date: (row.due_date as string | null) ?? null,
-      })),
-    )
-    setLoading(false)
-  }, [canViewReports, company])
 
   const loadCustomers = useCallback(async () => {
     if (!company || !canViewReports) {
@@ -218,184 +96,19 @@ export default function Reports() {
 
   useEffect(() => {
     if (companyLoading) return
-    void load()
-  }, [companyLoading, load])
-
-  useEffect(() => {
-    if (companyLoading) return
     void loadCustomers()
   }, [companyLoading, loadCustomers])
 
-  const visibleEmployees = useMemo(
-    () =>
-      employees.filter((row) => {
-        if (branchFilter === 'none' && row.branch_id) return false
-        if (branchFilter && branchFilter !== 'none' && row.branch_id !== branchFilter) return false
-        if (employmentFilter && row.employment_status !== employmentFilter) return false
-        return true
-      }),
-    [branchFilter, employees, employmentFilter],
-  )
+  const exportDisabled = companyLoading || !company || !canViewReports || customerLoading || Boolean(customerError)
 
-  const visibleEmployeeIds = useMemo(() => new Set(visibleEmployees.map((row) => row.id)), [visibleEmployees])
-
-  const visibleTasks = useMemo(
-    () =>
-      tasks.filter((row) => {
-        if (branchFilter === 'none' && row.branch_id) return false
-        if (branchFilter && branchFilter !== 'none' && row.branch_id !== branchFilter) return false
-        if (taskStatusFilter && row.status !== taskStatusFilter) return false
-        if (taskPriorityFilter && row.priority !== taskPriorityFilter) return false
-        return true
-      }),
-    [branchFilter, taskPriorityFilter, taskStatusFilter, tasks],
-  )
-
-  const employeeCounts = useMemo(() => {
-    const counts: Record<EmploymentStatus, number> = { active: 0, inactive: 0, vacation: 0, terminated: 0 }
-    for (const row of visibleEmployees) counts[row.employment_status] += 1
-    return counts
-  }, [visibleEmployees])
-
-  const employeesByBranch = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const branch of branches) counts.set(branch.id, 0)
-    let unassigned = 0
-    for (const row of visibleEmployees) {
-      if (!row.branch_id || !counts.has(row.branch_id)) unassigned += 1
-      else counts.set(row.branch_id, (counts.get(row.branch_id) ?? 0) + 1)
-    }
-    const rows = branches
-      .filter((branch) => !branchFilter || branchFilter === branch.id)
-      .map((branch) => ({ label: branch.name || '—', value: counts.get(branch.id) ?? 0 }))
-    if (!branchFilter || branchFilter === 'none') rows.push({ label: NO_BRANCH, value: unassigned })
-    return rows
-  }, [branchFilter, branches, visibleEmployees])
-
-  const employeesByNationality = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const row of visibleEmployees) {
-      const label = row.nationality?.trim() || NO_NATIONALITY
-      counts.set(label, (counts.get(label) ?? 0) + 1)
-    }
-    return [...counts.entries()]
-      .map(([label, value]) => ({ label, value }))
-      .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, 'ar'))
-  }, [visibleEmployees])
-
-  const expiry = useMemo(() => {
-    let iqamaExpired = 0
-    let iqamaSoon = 0
-    let passportExpired = 0
-    let passportSoon = 0
-    for (const row of visibleEmployees) {
-      const iqama = expiryKind(row.iqama_expiry_date)
-      const passport = expiryKind(row.passport_expiry_date)
-      if (iqama === 'expired') iqamaExpired += 1
-      if (iqama === 'soon') iqamaSoon += 1
-      if (passport === 'expired') passportExpired += 1
-      if (passport === 'soon') passportSoon += 1
-    }
-    let documentsExpired = 0
-    let documentsSoon = 0
-    for (const row of documents) {
-      if (!visibleEmployeeIds.has(row.employee_id)) continue
-      const kind = expiryKind(row.expiry_date)
-      if (kind === 'expired') documentsExpired += 1
-      if (kind === 'soon') documentsSoon += 1
-    }
-    return { iqamaExpired, iqamaSoon, passportExpired, passportSoon, documentsExpired, documentsSoon }
-  }, [documents, visibleEmployeeIds, visibleEmployees])
-
-  const taskSummary = useMemo(() => {
-    const counts: Record<TaskStatus, number> = { open: 0, in_progress: 0, completed: 0, cancelled: 0 }
-    let overdue = 0
-    let dueToday = 0
-    let urgent = 0
-    for (const row of visibleTasks) {
-      counts[row.status] += 1
-      const bucket = dueBucket(row)
-      if (bucket === 'overdue') overdue += 1
-      if (bucket === 'today') dueToday += 1
-      if (row.priority === 'urgent' && (row.status === 'open' || row.status === 'in_progress')) urgent += 1
-    }
-    return { counts, overdue, dueToday, urgent }
-  }, [visibleTasks])
-
-  const tasksByBranch = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const branch of branches) counts.set(branch.id, 0)
-    let unassigned = 0
-    for (const row of visibleTasks) {
-      if (!row.branch_id || !counts.has(row.branch_id)) unassigned += 1
-      else counts.set(row.branch_id, (counts.get(row.branch_id) ?? 0) + 1)
-    }
-    const rows = branches
-      .filter((branch) => !branchFilter || branchFilter === branch.id)
-      .map((branch) => ({ label: branch.name || '—', value: counts.get(branch.id) ?? 0 }))
-    if (!branchFilter || branchFilter === 'none') rows.push({ label: NO_BRANCH, value: unassigned })
-    return rows
-  }, [branchFilter, branches, visibleTasks])
-
-  const exportDisabled =
-    companyLoading ||
-    !company ||
-    !canViewReports ||
-    (area === 'operations' ? loading || Boolean(error) : customerLoading || Boolean(customerError))
-
-  function exportActiveReport() {
+  function exportCustomerReport() {
     setExportError('')
     try {
       const day = riyadhDay(new Date().toISOString()) || 'report'
-      if (area === 'operations') {
-        downloadCsv(`reports-operations-${day}.csv`, operationalCsvRows())
-      } else {
-        downloadCsv(`reports-customers-${day}.csv`, customerCsvRows())
-      }
+      downloadCsv(`reports-customers-${day}.csv`, customerCsvRows())
     } catch {
       setExportError('تعذر إنشاء ملف التصدير')
     }
-  }
-
-  function operationalCsvRows(): CsvValue[][] {
-    const branchLabel = !branchFilter
-      ? 'كل الفروع'
-      : branchFilter === 'none'
-        ? NO_BRANCH
-        : (branches.find((branch) => branch.id === branchFilter)?.name ?? '—')
-    const employmentLabel = employmentFilter
-      ? employmentStatusLabel[employmentFilter as EmploymentStatus]
-      : 'كل الحالات'
-    const taskStatus = taskStatusFilter ? taskStatusLabel[taskStatusFilter as TaskStatus] : 'كل الحالات'
-    const taskPriority = taskPriorityFilter ? taskPriorityLabel[taskPriorityFilter as TaskPriority] : 'كل الأولويات'
-    return [
-      ['القسم', 'البند', 'القيمة', 'التوضيح'],
-      ['التصفية', 'الفرع', branchLabel, 'تُطبّق على الموظفين والمهام'],
-      ['التصفية', 'حالة التوظيف', employmentLabel, 'تُطبّق على الموظفين والانتهاء'],
-      ['التصفية', 'حالة المهمة', taskStatus, 'تُطبّق على المهام'],
-      ['التصفية', 'أولوية المهمة', taskPriority, 'تُطبّق على المهام'],
-      ['الموظفون', 'إجمالي الموظفين', visibleEmployees.length, 'بعد التصفية'],
-      ['الموظفون', 'نشط', employeeCounts.active, ''],
-      ['الموظفون', 'غير نشط', employeeCounts.inactive, ''],
-      ['الموظفون', 'إجازة', employeeCounts.vacation, ''],
-      ['الموظفون', 'منتهية الخدمة', employeeCounts.terminated, ''],
-      ...countRows('الموظفون حسب الفرع', employeesByBranch, 'لا يوجد موظفون مطابقون.'),
-      ...countRows('الموظفون حسب الجنسية', employeesByNationality, 'لا يوجد موظفون مطابقون.'),
-      ['الانتهاء', 'إقامات منتهية', expiry.iqamaExpired, 'بعد تصفية الموظفين'],
-      ['الانتهاء', 'إقامات خلال 30 يوماً', expiry.iqamaSoon, ''],
-      ['الانتهاء', 'جوازات منتهية', expiry.passportExpired, ''],
-      ['الانتهاء', 'جوازات خلال 30 يوماً', expiry.passportSoon, ''],
-      ['الانتهاء', 'مستندات منتهية', expiry.documentsExpired, ''],
-      ['الانتهاء', 'مستندات خلال 30 يوماً', expiry.documentsSoon, ''],
-      ['المهام', 'مفتوحة', taskSummary.counts.open, 'بعد التصفية'],
-      ['المهام', 'قيد التنفيذ', taskSummary.counts.in_progress, ''],
-      ['المهام', 'مكتملة', taskSummary.counts.completed, ''],
-      ['المهام', 'ملغاة', taskSummary.counts.cancelled, ''],
-      ['المهام', 'متأخرة', taskSummary.overdue, 'لا تشمل المكتملة والملغاة'],
-      ['المهام', 'تستحق اليوم', taskSummary.dueToday, 'لا تشمل المكتملة والملغاة'],
-      ['المهام', 'عاجلة', taskSummary.urgent, 'أولوية عاجلة وحالة مفتوحة أو قيد التنفيذ'],
-      ...countRows('المهام حسب الفرع', tasksByBranch, 'لا توجد مهام مطابقة.'),
-    ]
   }
 
   function customerCsvRows(): CsvValue[][] {
@@ -468,17 +181,14 @@ export default function Reports() {
       <div className="page-head">
         <div>
           <h1>التقارير</h1>
-          <p className="page-sub">
-            {area === 'operations' ? 'التشغيل' : 'العملاء'}
-            {company ? ` — ${company.name}` : ''}
-          </p>
+          <p className="page-sub">العملاء والمعاملات</p>
         </div>
-        <button type="button" className="btn" onClick={exportActiveReport} disabled={exportDisabled}>
+        <button type="button" className="btn" onClick={exportCustomerReport} disabled={exportDisabled}>
           تصدير CSV
         </button>
       </div>
 
-      {(companyError || error) && <div className="alert alert-error">{companyError || error}</div>}
+      {companyError && <div className="alert alert-error">{companyError}</div>}
       {exportError && <div className="alert alert-error">{exportError}</div>}
 
       {companyLoading ? (
@@ -488,146 +198,16 @@ export default function Reports() {
           {ambiguous ? 'يوجد أكثر من شركة لهذا الحساب ولم تُحدَّد الشركة النشطة.' : 'لا توجد شركة نشطة لهذا الحساب.'}
         </div>
       ) : (
-        <>
-          <div className="report-tabs" role="tablist" aria-label="أقسام التقارير">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={area === 'operations'}
-              className={area === 'operations' ? 'btn btn-primary' : 'btn btn-ghost'}
-              onClick={() => {
-                setExportError('')
-                setArea('operations')
-              }}
-            >
-              التشغيل
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={area === 'customers'}
-              className={area === 'customers' ? 'btn btn-primary' : 'btn btn-ghost'}
-              onClick={() => {
-                setExportError('')
-                setArea('customers')
-              }}
-            >
-              العملاء
-            </button>
-          </div>
-
-          {area === 'customers' ? (
-            <CustomerReport
-              loading={customerLoading}
-              error={customerError}
-              customers={customers}
-              transactions={transactions}
-              fromDate={fromDate}
-              toDate={toDate}
-              onFromDate={setFromDate}
-              onToDate={setToDate}
-            />
-          ) : loading ? (
-            <div className="empty">جارٍ التحميل…</div>
-          ) : (
-        <>
-          <section className="card" aria-label="تصفية التشغيل">
-            <div className="filters">
-              <div className="field">
-                <label htmlFor="report-branch">الفرع</label>
-                <SelectField
-                  id="report-branch"
-                  value={branchFilter}
-                  onChange={setBranchFilter}
-                  options={[
-                    { value: '', label: 'كل الفروع' },
-                    { value: 'none', label: NO_BRANCH },
-                    ...branches.map((branch) => ({ value: branch.id, label: branch.name })),
-                  ]}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="report-employment">حالة التوظيف</label>
-                <SelectField
-                  id="report-employment"
-                  value={employmentFilter}
-                  onChange={setEmploymentFilter}
-                  options={[
-                    { value: '', label: 'كل الحالات' },
-                    ...EMPLOYMENT_STATUSES.map((status) => ({ value: status, label: employmentStatusLabel[status] })),
-                  ]}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="report-task-status">حالة المهمة</label>
-                <SelectField
-                  id="report-task-status"
-                  value={taskStatusFilter}
-                  onChange={setTaskStatusFilter}
-                  options={[
-                    { value: '', label: 'كل الحالات' },
-                    ...TASK_STATUSES.map((status) => ({ value: status, label: taskStatusLabel[status] })),
-                  ]}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="report-task-priority">أولوية المهمة</label>
-                <SelectField
-                  id="report-task-priority"
-                  value={taskPriorityFilter}
-                  onChange={setTaskPriorityFilter}
-                  options={[
-                    { value: '', label: 'كل الأولويات' },
-                    ...TASK_PRIORITIES.map((priority) => ({ value: priority, label: taskPriorityLabel[priority] })),
-                  ]}
-                />
-              </div>
-            </div>
-          </section>
-
-          <section className="card" aria-label="ملخص الموظفين">
-            <h2 className="card-title">الموظفون</h2>
-            <div className="action-grid">
-              <Stat label="إجمالي الموظفين" value={visibleEmployees.length} />
-              <Stat label="نشط" value={employeeCounts.active} />
-              <Stat label="غير نشط" value={employeeCounts.inactive} />
-              <Stat label="إجازة" value={employeeCounts.vacation} />
-              <Stat label="منتهية الخدمة" value={employeeCounts.terminated} />
-            </div>
-          </section>
-
-          <GroupTable title="الموظفون حسب الفرع" rows={employeesByBranch} empty="لا يوجد موظفون مطابقون." />
-          <GroupTable title="الموظفون حسب الجنسية" rows={employeesByNationality} empty="لا يوجد موظفون مطابقون." />
-
-          <section className="card" aria-label="ملخص الانتهاء">
-            <h2 className="card-title">الانتهاء خلال 30 يوماً أو المنتهي</h2>
-            <div className="action-grid">
-              <Stat label="إقامات منتهية" value={expiry.iqamaExpired} warn={expiry.iqamaExpired > 0} />
-              <Stat label="إقامات خلال 30 يوماً" value={expiry.iqamaSoon} warn={expiry.iqamaSoon > 0} />
-              <Stat label="جوازات منتهية" value={expiry.passportExpired} warn={expiry.passportExpired > 0} />
-              <Stat label="جوازات خلال 30 يوماً" value={expiry.passportSoon} warn={expiry.passportSoon > 0} />
-              <Stat label="مستندات منتهية" value={expiry.documentsExpired} warn={expiry.documentsExpired > 0} />
-              <Stat label="مستندات خلال 30 يوماً" value={expiry.documentsSoon} warn={expiry.documentsSoon > 0} />
-            </div>
-          </section>
-
-          <section className="card" aria-label="ملخص المهام">
-            <h2 className="card-title">المهام</h2>
-            <div className="action-grid">
-              <Stat label="مفتوحة" value={taskSummary.counts.open} />
-              <Stat label="قيد التنفيذ" value={taskSummary.counts.in_progress} />
-              <Stat label="مكتملة" value={taskSummary.counts.completed} />
-              <Stat label="ملغاة" value={taskSummary.counts.cancelled} />
-              <Stat label="متأخرة" value={taskSummary.overdue} warn={taskSummary.overdue > 0} />
-              <Stat label="تستحق اليوم" value={taskSummary.dueToday} warn={taskSummary.dueToday > 0} />
-              <Stat label="عاجلة" value={taskSummary.urgent} warn={taskSummary.urgent > 0} />
-            </div>
-          </section>
-
-          <GroupTable title="المهام حسب الفرع" rows={tasksByBranch} empty="لا توجد مهام مطابقة." />
-        </>
-          )}
-        </>
+        <CustomerReport
+          loading={customerLoading}
+          error={customerError}
+          customers={customers}
+          transactions={transactions}
+          fromDate={fromDate}
+          toDate={toDate}
+          onFromDate={setFromDate}
+          onToDate={setToDate}
+        />
       )}
     </div>
   )

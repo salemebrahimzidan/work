@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Modal from '../components/Modal'
-import CompanyActionCenter from '../components/CompanyActionCenter'
 import { useCompany } from '../auth/CompanyProvider'
 import { loadOfficeProfitTotals } from '../lib/finance'
 import { supabase } from '../lib/supabase'
@@ -52,7 +51,6 @@ export default function Dashboard() {
   const [clientsError, setClientsError] = useState('')
   const [clientsLoading, setClientsLoading] = useState(false)
   const [clientQuery, setClientQuery] = useState('')
-  const [companyReload, setCompanyReload] = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -160,10 +158,7 @@ export default function Dashboard() {
         <button
           type="button"
           className="btn"
-          onClick={() => {
-            setCompanyReload((value) => value + 1)
-            void load()
-          }}
+          onClick={() => void load()}
           disabled={loading}
         >
           تحديث
@@ -230,8 +225,6 @@ export default function Dashboard() {
           )
         })}
       </section>
-
-      <CompanyActionCenter reloadToken={companyReload} />
 
       <Modal
         title={openItem?.label ?? 'الحالة'}
