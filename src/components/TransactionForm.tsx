@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthProvider'
 import { useCompany } from '../auth/CompanyProvider'
 import { loadServiceCommissionMap } from '../lib/finance'
 import { useCustomerOptions, useServicePrices } from '../lib/hooks'
-import { serviceCategoryLabel, type ServiceCategory } from '../lib/types'
+import { isServiceCategory, serviceCategories, serviceCategoryLabel, type ServiceCategory } from '../lib/types'
 import Modal from './Modal'
 import SelectField, { ComboField } from './SelectField'
 
@@ -76,7 +76,7 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
   }, [canViewFinance, commissions, selectedService])
 
   function selectCategory(value: string) {
-    setServiceCategory(value === 'sdad' || value === 'taqeeb' || value === 'fawateer' ? value : '')
+    setServiceCategory(isServiceCategory(value) ? value : '')
     setServiceName('')
     setTransactionValue('')
     setCommission('')
@@ -210,9 +210,10 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
             onChange={selectCategory}
             options={[
               { value: '', label: '— اختر نوع الخدمة —' },
-              { value: 'sdad', label: serviceCategoryLabel.sdad },
-              { value: 'taqeeb', label: serviceCategoryLabel.taqeeb },
-              { value: 'fawateer', label: serviceCategoryLabel.fawateer },
+              ...serviceCategories.map((category) => ({
+                value: category,
+                label: serviceCategoryLabel[category],
+              })),
             ]}
           />
         </div>

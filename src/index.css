@@ -124,6 +124,7 @@ a {
   border-radius: 8px;
   color: #c9e4e0;
   font-weight: 600;
+  line-height: 1.45;
 }
 
 .nav-link:hover {
@@ -779,6 +780,40 @@ a {
   gap: 12px;
 }
 
+.tx-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.tx-summary .stat {
+  padding: 10px 12px;
+}
+
+.tx-summary .stat-value {
+  font-size: 20px;
+}
+
+.tx-page-value {
+  margin: 16px 0 0;
+}
+
+.tx-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.tx-pager-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .stat {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1008,6 +1043,25 @@ a {
 .status-ring.completed .status-circle-value,
 .status-ring.completed .status-ring-label {
   color: #157347;
+}
+
+.dashboard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dashboard-recent {
+  margin-top: 16px;
+}
+
+.dashboard-recent-row {
+  cursor: pointer;
+}
+
+.dashboard-recent-row:hover td,
+.dashboard-recent-row:focus td {
+  background: #f7fbfa;
 }
 
 .two-col {
@@ -3054,6 +3108,42 @@ button.badge-cancelled:hover {
 
   .status-board {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tx-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tx-list thead {
+    display: none;
+  }
+
+  .tx-list tr {
+    display: block;
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tx-list td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 6px 0;
+    border: 0;
+    text-align: start;
+  }
+
+  .tx-list td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    flex: none;
+  }
+
+  .tx-list td:last-child {
+    justify-content: flex-start;
   }
 
   .status-circle {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useCompany } from '../auth/CompanyProvider'
 import DateField from '../components/DateField'
+import TransactionReport from '../components/TransactionReport'
 import { supabase } from '../lib/supabase'
 import { downloadCsv, type CsvValue } from '../lib/csv'
 import { count, transactionStatus } from '../lib/format'
@@ -49,7 +50,8 @@ function inDayRange(day: string, from: string, to: string): boolean {
 }
 
 export default function Reports() {
-  const { company, role, loading: companyLoading, error: companyError, ambiguous, canViewReports } = useCompany()
+  const { company, role, loading: companyLoading, error: companyError, ambiguous, canViewReports, canViewFinance } =
+    useCompany()
   const [customerLoading, setCustomerLoading] = useState(true)
   const [customerError, setCustomerError] = useState('')
   const [customers, setCustomers] = useState<CustomerRow[]>([])
@@ -57,6 +59,7 @@ export default function Reports() {
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [exportError, setExportError] = useState('')
+  const [area, setArea] = useState<'customers' | 'transactions'>('customers')
 
   const loadCustomers = useCallback(async () => {
     if (!company || !canViewReports) {
@@ -183,9 +186,11 @@ export default function Reports() {
           <h1>التقارير</h1>
           <p className="page-sub">العملاء والمعاملات</p>
         </div>
-        <button type="button" className="btn" onClick={exportCustomerReport} disabled={exportDisabled}>
-          تصدير CSV
-        </button>
+        {area === 'customers' && (
+          <button type="button" className="btn" onClick={exportCustomerReport} disabled={exportDisabled}>
+            تصدير CSV
+          </button>
+        )}
       </div>
 
       {companyError && <div className="alert alert-error">{companyError}</div>}
@@ -198,16 +203,42 @@ export default function Reports() {
           {ambiguous ? 'يوجد أكثر من شركة لهذا الحساب ولم تُحدَّد الشركة النشطة.' : 'لا توجد شركة نشطة لهذا الحساب.'}
         </div>
       ) : (
-        <CustomerReport
-          loading={customerLoading}
-          error={customerError}
-          customers={customers}
-          transactions={transactions}
-          fromDate={fromDate}
-          toDate={toDate}
-          onFromDate={setFromDate}
-          onToDate={setToDate}
-        />
+        <>
+          <div className="report-tabs" role="tablist" aria-label="أقسام التقارير">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={area === 'customers'}
+              className={area === 'customers' ? 'btn btn-primary' : 'btn btn-ghost'}
+              onClick={() => setArea('customers')}
+            >
+              تقرير العملاء
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={area === 'transactions'}
+              className={area === 'transactions' ? 'btn btn-primary' : 'btn btn-ghost'}
+              onClick={() => setArea('transactions')}
+            >
+              تقرير المعاملات
+            </button>
+          </div>
+          {area === 'customers' ? (
+            <CustomerReport
+              loading={customerLoading}
+              error={customerError}
+              customers={customers}
+              transactions={transactions}
+              fromDate={fromDate}
+              toDate={toDate}
+              onFromDate={setFromDate}
+              onToDate={setToDate}
+            />
+          ) : (
+            <TransactionReport canViewFinance={canViewFinance} />
+          )}
+        </>
       )}
     </div>
   )

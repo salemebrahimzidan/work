@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import CustomerForm from '../components/CustomerForm'
 import Modal from '../components/Modal'
+import TransactionForm from '../components/TransactionForm'
 import { useCompany } from '../auth/CompanyProvider'
-import { loadOfficeProfitTotals } from '../lib/finance'
+import { loadOfficeProfitMap, loadOfficeProfitTotals } from '../lib/finance'
 import { supabase } from '../lib/supabase'
-import { count, errorMessage, money } from '../lib/format'
-import { normalizeMobile } from '../lib/mobile'
+import { count, errorMessage, formatDate, money, transactionStatus } from '../lib/format'
 import type { DashboardStats } from '../lib/types'
+
+const RECENT_LIMIT = 5
+const RECENT_COLUMNS = 'id, customer_name, service_name, transaction_value, status, created_at'
 
 const STATUSES = [
   { status: 'pending', label: 'قيد الانتظار', tone: 'pending', color: '#e8a317' },
@@ -16,6 +20,16 @@ const STATUSES = [
 ] as const
 
 type StatusKey = (typeof STATUSES)[number]['status']
+
+interface RecentTransaction {
+  id: string
+  customer_name: string
+  service_name: string
+  transaction_value: string | null
+  status: string
+  created_at: string
+  original_profit?: string
+}
 
 function monthLabel() {
   const monthName = new Intl.DateTimeFormat('ar-SA', {
@@ -27,14 +41,8 @@ function monthLabel() {
   return `من 1 ${monthName}`
 }
 
-interface StatusClient {
-  id: string
-  name: string
-  mobile: string
-  services: string[]
-}
-
 export default function Dashboard() {
+  const navigate = useNavigate()
   const { canViewFinance, loading: companyLoading } = useCompany()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [statusCounts, setStatusCounts] = useState<Record<StatusKey, number>>({
@@ -43,26 +51,29 @@ export default function Dashboard() {
     cancelled: 0,
     completed: 0,
   })
+  const [recent, setRecent] = useState<RecentTransaction[]>([])
   const [profit, setProfit] = useState({ total: 0, today: 0, month: 0 })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
-  const [openStatus, setOpenStatus] = useState<StatusKey | null>(null)
-  const [clients, setClients] = useState<StatusClient[] | null>(null)
-  const [clientsError, setClientsError] = useState('')
-  const [clientsLoading, setClientsLoading] = useState(false)
-  const [clientQuery, setClientQuery] = useState('')
+  const [customerOpen, setCustomerOpen] = useState(false)
+  const [transactionOpen, setTransactionOpen] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
-    const [statsRes, ...statusRes] = await Promise.all([
+    const [statsRes, recentRes, ...statusRes] = await Promise.all([
       supabase.rpc('dashboard_stats'),
+      supabase
+        .from('transaction_details')
+        .select(RECENT_COLUMNS)
+        .order('created_at', { ascending: false })
+        .limit(RECENT_LIMIT),
       ...STATUSES.map((item) =>
         supabase.from('transactions').select('id', { count: 'exact', head: true }).eq('status', item.status),
       ),
     ])
 
-    const failure = statsRes.error || statusRes.find((result) => result.error)?.error
+    const failure = statsRes.error || recentRes.error || statusRes.find((result) => result.error)?.error
     if (statsRes.error) setError(errorMessage(statsRes.error))
     else setStats(statsRes.data as DashboardStats)
 
@@ -74,20 +85,24 @@ export default function Dashboard() {
     })
     setStatusCounts(next)
 
+    const latest = (recentRes.data ?? []) as RecentTransaction[]
     if (canViewFinance) {
       try {
-        const totals = await loadOfficeProfitTotals()
+        const [totals, profits] = await Promise.all([loadOfficeProfitTotals(), loadOfficeProfitMap()])
         setProfit({
           total: Number(totals.total_profit) || 0,
           today: Number(totals.profit_today) || 0,
           month: Number(totals.profit_month) || 0,
         })
+        setRecent(latest.map((row) => ({ ...row, original_profit: profits[row.id] })))
       } catch (profitError) {
         setProfit({ total: 0, today: 0, month: 0 })
+        setRecent(latest)
         if (!statsRes.error) setError(errorMessage(profitError))
       }
     } else {
       setProfit({ total: 0, today: 0, month: 0 })
+      setRecent(latest)
     }
     setLoading(false)
   }, [canViewFinance])
@@ -98,54 +113,9 @@ export default function Dashboard() {
   }, [companyLoading, load])
 
   const totalStatuses = STATUSES.reduce((sum, item) => sum + statusCounts[item.status], 0)
-  const openItem = STATUSES.find((item) => item.status === openStatus)
-  const query = clientQuery.trim()
-  const queryDigits = normalizeMobile(query)
-  const queryText = query.toLocaleLowerCase('ar')
-  const visibleClients = (clients ?? []).filter((client) => {
-    if (!query) return true
-    if (client.name.toLocaleLowerCase('ar').includes(queryText)) return true
-    if (client.services.some((service) => service.toLocaleLowerCase('ar').includes(queryText))) return true
-    return queryDigits.length > 0 && normalizeMobile(client.mobile).includes(queryDigits)
-  })
 
-  function closeClients() {
-    setOpenStatus(null)
-    setClientQuery('')
-  }
-
-  async function showClients(status: StatusKey) {
-    setOpenStatus(status)
-    setClientQuery('')
-    setClients(null)
-    setClientsError('')
-    setClientsLoading(true)
-    const { data, error: queryError } = await supabase
-      .from('transaction_details')
-      .select('customer_id, customer_name, customer_mobile, service_name')
-      .eq('status', status)
-      .order('customer_name')
-
-    setClientsLoading(false)
-    if (queryError) {
-      setClientsError(errorMessage(queryError))
-      return
-    }
-
-    const grouped = new Map<string, StatusClient>()
-    for (const row of data ?? []) {
-      const current: StatusClient = grouped.get(row.customer_id) ?? {
-        id: row.customer_id,
-        name: row.customer_name,
-        mobile: row.customer_mobile,
-        services: [],
-      }
-      if (row.service_name && !current.services.includes(row.service_name)) {
-        current.services.push(row.service_name)
-      }
-      grouped.set(row.customer_id, current)
-    }
-    setClients([...grouped.values()])
+  function openRecent(id: string) {
+    navigate(`/transactions/${id}`)
   }
 
   return (
@@ -153,16 +123,21 @@ export default function Dashboard() {
       <div className="page-head">
         <div>
           <h1>لوحة التحكم</h1>
-          <p className="page-sub">ملخص العملاء والمعاملات والأرباح</p>
+          <p className="page-sub">
+            {canViewFinance ? 'ملخص العملاء والمعاملات والأرباح' : 'ملخص العملاء والمعاملات'}
+          </p>
         </div>
-        <button
-          type="button"
-          className="btn"
-          onClick={() => void load()}
-          disabled={loading}
-        >
-          تحديث
-        </button>
+        <div className="dashboard-actions">
+          <button type="button" className="btn btn-primary" onClick={() => setCustomerOpen(true)}>
+            + إضافة عميل
+          </button>
+          <button type="button" className="btn btn-primary" onClick={() => setTransactionOpen(true)}>
+            + إضافة معاملة
+          </button>
+          <button type="button" className="btn" onClick={() => void load()} disabled={loading}>
+            تحديث
+          </button>
+        </div>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
@@ -180,7 +155,10 @@ export default function Dashboard() {
           title="المعاملات"
           caption="عدد المعاملات"
           value={count(stats?.total_transactions)}
-          items={[{ label: 'اليوم', value: count(stats?.transactions_today) }]}
+          items={[
+            { label: 'اليوم', value: count(stats?.transactions_today) },
+            { label: 'هذا الشهر', value: count(stats?.transactions_month) },
+          ]}
         />
         {canViewFinance && (
           <SummaryCard
@@ -201,11 +179,10 @@ export default function Dashboard() {
           const value = statusCounts[item.status]
           const share = totalStatuses === 0 ? 0 : (value / totalStatuses) * 100
           return (
-            <button
+            <Link
               key={item.status}
-              type="button"
+              to={`/transactions?status=${item.status}`}
               className={`status-ring ${item.tone}`}
-              onClick={() => void showClients(item.status)}
             >
               <span
                 className="status-circle"
@@ -221,75 +198,84 @@ export default function Dashboard() {
                 </span>
               </span>
               <span className="status-ring-label">{item.label}</span>
-            </button>
+            </Link>
           )
         })}
       </section>
 
-      <Modal
-        title={openItem?.label ?? 'الحالة'}
-        subtitle={
-          openItem ? (
-            <span className="num">
-              {count(query ? visibleClients.length : (clients?.length ?? 0))} عميل
-            </span>
-          ) : undefined
-        }
-        open={openStatus !== null}
-        center
-        onClose={closeClients}
-      >
-        {clientsLoading && <p className="muted">جارٍ التحميل…</p>}
-        {clientsError && <div className="alert alert-error">{clientsError}</div>}
-        {clients && clients.length === 0 && <p className="muted">لا يوجد عملاء في هذه الحالة</p>}
-        {clients && clients.length > 0 && (
-          <label className="status-search">
-            <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
-              <circle cx="7" cy="7" r="4.2" fill="none" stroke="currentColor" strokeWidth="1.6" />
-              <path d="M10.2 10.2 13.2 13.2" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-            </svg>
-            <input
-              value={clientQuery}
-              onChange={(event) => setClientQuery(event.target.value)}
-              placeholder="بحث بالاسم أو الجوال أو المعاملة"
-              aria-label="بحث بالاسم أو الجوال أو المعاملة"
-            />
-          </label>
-        )}
-        {clients && clients.length > 0 && visibleClients.length === 0 && (
-          <p className="status-empty">لا توجد نتائج</p>
-        )}
-        {visibleClients.length > 0 && (
-          <ul className="status-client-list">
-            {visibleClients.map((client) => (
-              <li key={client.id}>
-                <Link className="status-client" to={`/customers/${client.id}`}>
-                  <span className="status-client-avatar" aria-hidden="true">
-                    {client.name.trim().charAt(0)}
-                  </span>
-                  <span className="status-client-copy">
-                    <span className="status-client-name">{client.name}</span>
-                    <span className="status-client-phone num" dir="ltr">
-                      {client.mobile}
-                    </span>
-                    <span className="status-client-tags">
-                      {client.services.length > 0
-                        ? client.services.map((service) => (
-                            <span className="status-client-tag" key={service}>
-                              {service}
-                            </span>
-                          ))
-                        : <span className="status-client-tag">—</span>}
-                    </span>
-                  </span>
-                  <svg className="status-client-chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                    <path d="M10 3.5 5.5 8 10 12.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+      <section className="dashboard-recent" aria-label="أحدث المعاملات">
+        <h2 className="card-title">أحدث المعاملات</h2>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>العميل</th>
+                <th>المعاملة</th>
+                <th>قيمة المعاملة</th>
+                {canViewFinance && <th>عمولة المكتب</th>}
+                <th>الحالة</th>
+                <th>التاريخ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recent.map((row) => {
+                const status = transactionStatus(row.status)
+                return (
+                  <tr
+                    key={row.id}
+                    className="dashboard-recent-row"
+                    tabIndex={0}
+                    role="link"
+                    aria-label={`${row.customer_name} — ${row.service_name}`}
+                    onClick={() => openRecent(row.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        openRecent(row.id)
+                      }
+                    }}
+                  >
+                    <td>{row.customer_name}</td>
+                    <td>{row.service_name}</td>
+                    <td className="num">{row.transaction_value == null ? '—' : money(row.transaction_value)}</td>
+                    {canViewFinance && (
+                      <td className="num strong">
+                        {row.original_profit == null ? '—' : money(row.original_profit)}
+                      </td>
+                    )}
+                    <td>
+                      <span className={status.badge}>{status.label}</span>
+                    </td>
+                    <td className="num muted">{formatDate(row.created_at)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          {recent.length === 0 && (
+            <div className="empty">{loading ? 'جارٍ التحميل…' : 'لا توجد معاملات حديثة'}</div>
+          )}
+        </div>
+      </section>
+
+      <Modal title="إضافة عميل" open={customerOpen} onClose={() => setCustomerOpen(false)}>
+        <CustomerForm
+          onCancel={() => setCustomerOpen(false)}
+          onSaved={() => {
+            setCustomerOpen(false)
+            void load()
+          }}
+        />
+      </Modal>
+
+      <Modal title="إضافة معاملة" open={transactionOpen} onClose={() => setTransactionOpen(false)}>
+        <TransactionForm
+          onCancel={() => setTransactionOpen(false)}
+          onSaved={() => {
+            setTransactionOpen(false)
+            void load()
+          }}
+        />
       </Modal>
     </>
   )

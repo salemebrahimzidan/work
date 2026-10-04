@@ -42,17 +42,59 @@ export interface CustomerSummary {
   total_transaction_value: string
 }
 
-export type ServiceCategory = 'sdad' | 'taqeeb' | 'fawateer'
+export const serviceCategories = [
+  'sdad',
+  'taqeeb',
+  'fawateer',
+  'ijar',
+  'tashirat',
+  'tameen',
+  'mutalabat',
+  'taqib',
+  'amal',
+  'tamweel',
+  'khassa',
+  'zakat',
+] as const
+
+export type ServiceCategory = (typeof serviceCategories)[number]
+
+export function isServiceCategory(value: string | null | undefined): value is ServiceCategory {
+  return !!value && (serviceCategories as readonly string[]).includes(value)
+}
 
 export function asServiceCategory(value: string | null | undefined): ServiceCategory {
-  if (value === 'taqeeb' || value === 'fawateer') return value
-  return 'sdad'
+  return isServiceCategory(value) ? value : 'sdad'
 }
 
 export const serviceCategoryLabel: Record<ServiceCategory, string> = {
   sdad: 'سداد مدفوعات حكومية',
   taqeeb: 'خدمات وزاره التجاره',
   fawateer: 'سداد فواتير',
+  ijar: 'خدمات عقود الإيجار والعقود العامة',
+  tashirat: 'خدمات التأشيرات ووزارة الخارجية',
+  tameen: 'خدمات التأمين الطبي والسيارات',
+  mutalabat: 'خدمات المطالبات ناجز التأمينات الحوادث',
+  taqib: 'خدمات التعقيب',
+  amal: 'خدمات العمل الحكومي',
+  tamweel: 'خدمات التمويل والبنوك',
+  khassa: 'خدمات المعاملات الخاصة',
+  zakat: 'خدمات الزكاة والضريبة والتأمينات والقوائم المالية',
+}
+
+export const serviceCategoryPath: Record<ServiceCategory, string> = {
+  sdad: '/services',
+  taqeeb: '/taqeeb',
+  fawateer: '/fawateer',
+  ijar: '/ijar',
+  tashirat: '/tashirat',
+  tameen: '/tameen',
+  mutalabat: '/mutalabat',
+  taqib: '/taqib',
+  amal: '/amal',
+  tamweel: '/tamweel',
+  khassa: '/khassa',
+  zakat: '/zakat',
 }
 
 export interface ServicePrice {

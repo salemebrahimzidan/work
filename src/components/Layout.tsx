@@ -2,6 +2,7 @@ import { Fragment } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { useCompany } from '../auth/CompanyProvider'
+import { serviceCategories, serviceCategoryLabel, serviceCategoryPath } from '../lib/types'
 
 const links = [
   { to: '/', label: 'لوحة التحكم', admin: true },
@@ -10,9 +11,11 @@ const links = [
   { to: '/transactions?status=in_progress', label: 'قيد التنفيذ', admin: false },
   { to: '/transactions?status=cancelled', label: 'ملغاة', admin: false },
   { to: '/transactions?status=completed', label: 'مكتملة', admin: false },
-  { to: '/services', label: 'سداد مدفوعات حكومية', admin: true },
-  { to: '/taqeeb', label: 'خدمات وزاره التجاره', admin: true },
-  { to: '/fawateer', label: 'سداد فواتير', admin: true },
+  ...serviceCategories.map((category) => ({
+    to: serviceCategoryPath[category],
+    label: serviceCategoryLabel[category],
+    admin: true,
+  })),
 ]
 
 export default function Layout() {

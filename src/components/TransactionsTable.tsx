@@ -13,6 +13,9 @@ interface Props {
   rows: TransactionDetail[]
   loading?: boolean
   showCustomer?: boolean
+  /** Transactions page: mobile, note indicator, and a stacked layout on small screens. */
+  officeLayout?: boolean
+  emptyLabel?: string
   onChanged?: () => void
 }
 
@@ -20,6 +23,8 @@ export default function TransactionsTable({
   rows,
   loading,
   showCustomer = true,
+  officeLayout = false,
+  emptyLabel = 'لا توجد معاملات',
   onChanged,
 }: Props) {
   const { isAdmin } = useAuth()
@@ -32,7 +37,7 @@ export default function TransactionsTable({
 
   return (
     <>
-      <div className="table-wrap">
+      <div className={officeLayout ? 'table-wrap tx-list' : 'table-wrap'}>
         <table>
           <thead>
             <tr>
@@ -50,28 +55,49 @@ export default function TransactionsTable({
             {rows.map((row) => (
               <tr key={row.id}>
                 {showCustomer && (
-                  <td>
+                  <td data-label="العميل">
                     <Link to={`/customers/${row.customer_id}`}>{row.customer_name}</Link>
+                    {officeLayout && (
+                      <div className="num muted" dir="ltr">
+                        {row.customer_mobile || '—'}
+                      </div>
+                    )}
                   </td>
                 )}
-                <td>
+                <td data-label="المعاملة">
                   <Link to={`/transactions/${row.id}`}>{row.service_name}</Link>
                 </td>
-                <td className="num">
+                <td className="num" data-label="قيمة المعاملة">
                   {row.transaction_value == null ? '—' : money(row.transaction_value)}
                 </td>
                 {canViewFinance && (
-                  <td className="num strong">{row.original_profit == null ? '—' : money(row.original_profit)}</td>
+                  <td className="num strong" data-label="عمولة المكتب">
+                    {row.original_profit == null ? '—' : money(row.original_profit)}
+                  </td>
                 )}
-                <td>
+                <td data-label="الحالة">
                   <StatusCell
                     row={row}
                     onShowReason={row.status === 'cancelled' ? () => setReasonRow(row) : undefined}
                   />
                 </td>
-                <td className="muted">{row.note || '—'}</td>
-                <td className="num muted">{formatDate(row.created_at)}</td>
-                <td>
+                <td className="muted" data-label="ملاحظة">
+                  {officeLayout ? (
+                    row.note?.trim() ? (
+                      <span className="badge" title={row.note}>
+                        ملاحظة
+                      </span>
+                    ) : (
+                      '—'
+                    )
+                  ) : (
+                    row.note || '—'
+                  )}
+                </td>
+                <td className="num muted" data-label="التاريخ">
+                  {formatDate(row.created_at)}
+                </td>
+                <td data-label="إجراءات">
                   <div className="row-actions">
                     <button type="button" className="btn btn-ghost btn-sm" onClick={() => setStepsRow(row)}>
                       الخطوات
@@ -94,7 +120,7 @@ export default function TransactionsTable({
           </tbody>
         </table>
         {rows.length === 0 && (
-          <div className="empty">{loading ? 'جارٍ التحميل…' : 'لا توجد معاملات'}</div>
+          <div className="empty">{loading ? 'جارٍ التحميل…' : emptyLabel}</div>
         )}
       </div>
 

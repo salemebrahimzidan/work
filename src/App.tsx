@@ -12,6 +12,7 @@ import TransactionDetails from './pages/TransactionDetails'
 import Profits from './pages/Profits'
 import Services from './pages/Services'
 import Reports from './pages/Reports'
+import { serviceCategories, serviceCategoryPath } from './lib/types'
 
 function AdminOnly({ children }: { children: ReactNode }) {
   const { isAdmin } = useAuth()
@@ -87,30 +88,17 @@ function AuthenticatedApp() {
               </FinanceOnly>
             }
           />
-          <Route
-            path="/services"
-            element={
-              <AdminOnly>
-                <Services category="sdad" />
-              </AdminOnly>
-            }
-          />
-          <Route
-            path="/taqeeb"
-            element={
-              <AdminOnly>
-                <Services category="taqeeb" />
-              </AdminOnly>
-            }
-          />
-          <Route
-            path="/fawateer"
-            element={
-              <AdminOnly>
-                <Services category="fawateer" />
-              </AdminOnly>
-            }
-          />
+          {serviceCategories.map((category) => (
+            <Route
+              key={category}
+              path={serviceCategoryPath[category]}
+              element={
+                <AdminOnly>
+                  <Services category={category} />
+                </AdminOnly>
+              }
+            />
+          ))}
           <Route path="/reports" element={<Reports />} />
           <Route path="*" element={<DefaultRedirect />} />
         </Route>
