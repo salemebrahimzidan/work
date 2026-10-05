@@ -133,6 +133,7 @@ export default function Layout() {
             ))}
           {isAdmin && (
             <>
+              <div className="nav-section">الخدمات</div>
               <NavMenu id="nav-payment" label="سداد" icon={Wallet} items={paymentLinks} pathname={pathname} linkClass={linkClass} />
               <NavMenu id="nav-services" label="خدمات" icon={Briefcase} items={serviceLinks} pathname={pathname} linkClass={linkClass} />
               {ticketLinks.map((link) => {
@@ -151,6 +152,7 @@ export default function Layout() {
               })}
             </>
           )}
+          {(canViewReports || canViewFinance) && <div className="nav-section">المتابعة</div>}
           {canViewReports && (
             <Link
               to="/reports"
@@ -175,7 +177,7 @@ export default function Layout() {
 
         <div className="user-box">
           <span className="user-name">
-            {profile?.full_name || session?.user.email}
+            <span className="user-name-text">{profile?.full_name || session?.user.email}</span>
             {isAdmin && <span className="badge badge-admin">مشرف</span>}
           </span>
           <button type="button" className="btn btn-ghost" onClick={signOut}>
