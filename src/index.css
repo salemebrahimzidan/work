@@ -51,13 +51,13 @@ a {
 }
 
 .sidebar {
-  width: 240px;
+  width: 260px;
   flex: none;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 20px 14px;
-  background: #123f3c;
+  gap: 12px;
+  padding: 16px 12px 14px;
+  background: #102f2d;
   color: #e7f3f1;
   position: sticky;
   top: 0;
@@ -78,12 +78,13 @@ a {
   gap: 10px;
   min-width: 0;
   font-weight: 700;
-  padding: 4px 8px 8px;
+  padding: 4px 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .brand-name {
   min-width: 0;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.35;
 }
 
@@ -102,10 +103,12 @@ a {
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   min-height: 0;
   flex: 1;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
 }
 
 .nav-group {
@@ -147,15 +150,28 @@ a {
   transform: rotate(180deg);
 }
 
+.nav-section {
+  margin-top: 14px;
+  padding: 8px 12px 4px;
+  color: #8fb8b3;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .nav-menu-items {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  margin-block: 2px 6px;
+  margin-inline: 18px 4px;
+  padding-inline-start: 8px;
+  border-inline-start: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .nav-sub {
-  padding-inline-start: 22px;
+  padding-inline-start: 8px;
   font-size: 13px;
+  color: #b7d4cf;
 }
 
 .nav-sub-2 {
@@ -174,11 +190,12 @@ a {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
-  border-radius: 8px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 10px;
   color: #c9e4e0;
   font-weight: 600;
-  line-height: 1.45;
+  line-height: 1.4;
 }
 
 .nav-icon {
@@ -204,6 +221,10 @@ a {
   color: #fff;
 }
 
+.nav-link.nav-sub.active {
+  background: rgba(29, 138, 128, 0.72);
+}
+
 .user-box {
   margin-top: auto;
   display: flex;
@@ -221,8 +242,15 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  min-width: 0;
   color: #fff;
-  word-break: break-word;
+}
+
+.user-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar .btn-ghost {
@@ -1447,12 +1475,33 @@ tbody tr.row-open:hover {
 }
 
 @media (min-width: 801px) {
-  .main:has(.services-page) {
+  .main:has(.services-page),
+  .main:has(.customers-page) {
     display: flex;
     flex-direction: column;
     height: 100vh;
     overflow: hidden;
     padding-bottom: 16px;
+  }
+
+  .customers-page {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .customers-page > .page-head,
+  .customers-page > .card,
+  .customers-page > .alert,
+  .customers-page > .table-pager {
+    flex: none;
+  }
+
+  .customers-page .table-sheet {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .services-page {
@@ -1484,7 +1533,8 @@ tbody tr.row-open:hover {
   pointer-events: none;
 }
 
-.price-pager {
+.price-pager,
+.table-pager {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1493,7 +1543,8 @@ tbody tr.row-open:hover {
   flex: none;
 }
 
-.price-pager .btn {
+.price-pager .btn,
+.table-pager .btn {
   min-width: 36px;
 }
 

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { CUSTOMER_SUMMARY_COLUMNS } from '../lib/finance'
 import { supabase } from '../lib/supabase'
 import { count, errorMessage, formatDate, money } from '../lib/format'
+import { useHeightPages } from '../lib/useHeightPages'
 import { useAuth } from '../auth/AuthProvider'
 import type { CustomerSummary } from '../lib/types'
 import { SkeletonRows } from '../components/LoadingSkeleton'
@@ -59,8 +60,15 @@ export default function Customers() {
     return () => clearTimeout(timer)
   }, [load])
 
+  const pages = useHeightPages(rows.length, !loading && rows.length > 0, String(isAdmin))
+  const visibleRows = rows.slice(pages.start, pages.end)
+
+  useEffect(() => {
+    pages.setPage(0)
+  }, [search, iqama])
+
   return (
-    <>
+    <div className="customers-page">
       <div className="page-head">
         <div>
           <h1>العملاء</h1>
@@ -113,55 +121,58 @@ export default function Customers() {
 
       {error && <div className="alert alert-error" style={{ marginTop: 16 }}>{error}</div>}
 
-      <div className="table-wrap" style={{ marginTop: 16 }}>
+      <div className="table-wrap table-sheet" ref={pages.sheetRef} style={{ marginTop: 16 }}>
         <table>
-          <thead>
-            <tr>
-              <th>الاسم</th>
-              <th>الجوال</th>
-              <th>رقم الإقامة</th>
-              <th>المدينة</th>
-              <th>عدد المعاملات</th>
-              {!isAdmin && <th>قيمة المعاملة</th>}
-              <th>تاريخ الإضافة</th>
-            </tr>
-          </thead>
+          <CustomerHead isAdmin={isAdmin} />
           <tbody>
             {loading && rows.length === 0 ? (
               <SkeletonRows columns={isAdmin ? 6 : 7} />
-            ) : rows.map((row) => {
-              const openCount = openCounts[row.id] ?? 0
-              return (
-              <tr key={row.id} className={openCount > 0 ? 'row-open' : undefined}>
-                <td>
-                  <span className="name-cell">
-                    <Link to={`/customers/${row.id}`}>{row.full_name}</Link>
-                    {openCount > 0 && (
-                      <span className="badge badge-pending">
-                        {openCount > 1 ? `${count(openCount)} غير مكتملة` : 'غير مكتملة'}
-                      </span>
-                    )}
-                  </span>
-                </td>
-                <td className="num" dir="ltr">
-                  {row.mobile}
-                </td>
-                <td className="num" dir="ltr">
-                  {row.national_id || '—'}
-                </td>
-                <td>{row.city || '—'}</td>
-                <td className="num">{count(row.transactions_count)}</td>
-                {!isAdmin && (
-                  <td className="num strong">{money(row.total_transaction_value)}</td>
-                )}
-                <td className="num muted">{formatDate(row.created_at)}</td>
-              </tr>
-              )
-            })}
+            ) : (
+              visibleRows.map((row) => (
+                <CustomerRow key={row.id} row={row} isAdmin={isAdmin} openCount={openCounts[row.id] ?? 0} />
+              ))
+            )}
           </tbody>
         </table>
         {!loading && rows.length === 0 && <div className="empty">لا توجد نتائج</div>}
       </div>
+      {pages.pageCount > 1 && (
+        <div className="table-pager">
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            disabled={pages.currentPage === 0}
+            onClick={() => pages.setPage(pages.currentPage - 1)}
+          >
+            السابق
+          </button>
+          {Array.from({ length: pages.pageCount }, (_, index) => (
+            <button
+              key={index}
+              type="button"
+              className={index === pages.currentPage ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
+              onClick={() => pages.setPage(index)}
+            >
+              {index + 1}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            disabled={pages.currentPage >= pages.pageCount - 1}
+            onClick={() => pages.setPage(pages.currentPage + 1)}
+          >
+            التالي
+          </button>
+        </div>
+      )}
+      <table className="price-measure" aria-hidden="true" inert>
+        <tbody ref={pages.measureRef}>
+          {rows.map((row) => (
+            <CustomerRow key={row.id} row={row} isAdmin={isAdmin} openCount={openCounts[row.id] ?? 0} />
+          ))}
+        </tbody>
+      </table>
 
       <Modal title="إضافة عميل" open={addOpen} onClose={() => setAddOpen(false)}>
         <CustomerForm
@@ -172,6 +183,57 @@ export default function Customers() {
           }}
         />
       </Modal>
-    </>
+    </div>
+  )
+}
+
+function CustomerHead({ isAdmin }: { isAdmin: boolean }) {
+  return (
+    <thead>
+      <tr>
+        <th>الاسم</th>
+        <th>الجوال</th>
+        <th>رقم الإقامة</th>
+        <th>المدينة</th>
+        <th>عدد المعاملات</th>
+        {!isAdmin && <th>قيمة المعاملة</th>}
+        <th>تاريخ الإضافة</th>
+      </tr>
+    </thead>
+  )
+}
+
+function CustomerRow({
+  row,
+  isAdmin,
+  openCount,
+}: {
+  row: CustomerSummary
+  isAdmin: boolean
+  openCount: number
+}) {
+  return (
+    <tr className={openCount > 0 ? 'row-open' : undefined}>
+      <td>
+        <span className="name-cell">
+          <Link to={`/customers/${row.id}`}>{row.full_name}</Link>
+          {openCount > 0 && (
+            <span className="badge badge-pending">
+              {openCount > 1 ? `${count(openCount)} غير مكتملة` : 'غير مكتملة'}
+            </span>
+          )}
+        </span>
+      </td>
+      <td className="num" dir="ltr">
+        {row.mobile}
+      </td>
+      <td className="num" dir="ltr">
+        {row.national_id || '—'}
+      </td>
+      <td>{row.city || '—'}</td>
+      <td className="num">{count(row.transactions_count)}</td>
+      {!isAdmin && <td className="num strong">{money(row.total_transaction_value)}</td>}
+      <td className="num muted">{formatDate(row.created_at)}</td>
+    </tr>
   )
 }
