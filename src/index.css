@@ -1446,6 +1446,57 @@ tbody tr.row-open:hover {
   margin-top: 22px;
 }
 
+@media (min-width: 801px) {
+  .main:has(.services-page) {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    padding-bottom: 16px;
+  }
+
+  .services-page {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .services-page .price-section {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .services-page .price-sheet {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
+.price-measure {
+  position: fixed;
+  inset-inline-start: -10000px;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.price-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-top: 12px;
+  flex: none;
+}
+
+.price-pager .btn {
+  min-width: 36px;
+}
+
 .price-section-head {
   display: flex;
   align-items: center;

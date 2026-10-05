@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { Navigate, useParams } from 'react-router-dom'
 import { useCompany } from '../auth/CompanyProvider'
@@ -753,6 +753,21 @@ function PriceRow({
   )
 }
 
+function pageStarts(heights: number[], available: number): number[] {
+  const starts = [0]
+  let used = 0
+  heights.forEach((height, index) => {
+    const rowHeight = Math.max(height, 1)
+    if (index > starts[starts.length - 1] && used + rowHeight > available + 1) {
+      starts.push(index)
+      used = rowHeight
+    } else {
+      used += rowHeight
+    }
+  })
+  return starts
+}
+
 function PriceSection({
   rows,
   loading,
@@ -768,6 +783,68 @@ function PriceSection({
   onEdit: (row: ServicePrice) => void
   onDelete: (row: ServicePrice) => void
 }) {
+  const [page, setPage] = useState(0)
+  const [breaks, setBreaks] = useState<number[]>([0])
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const measureRef = useRef<HTMLTableSectionElement>(null)
+  const previousCount = useRef(0)
+  const pageCount = breaks.length
+  const currentPage = Math.min(page, Math.max(0, pageCount - 1))
+  const start = breaks[currentPage] ?? 0
+  const end = breaks[currentPage + 1] ?? rows.length
+  const visibleRows = rows.slice(start, end)
+
+  useLayoutEffect(() => {
+    if (loading || rows.length === 0) {
+      setBreaks((current) => (current.length === 1 && current[0] === 0 ? current : [0]))
+      setPage(0)
+      previousCount.current = 0
+      return
+    }
+
+    const sheet = sheetRef.current
+    const measure = measureRef.current
+    if (!sheet || !measure) return
+
+    function layout() {
+      const priceSheet = sheetRef.current
+      const priceMeasure = measureRef.current
+      if (!priceSheet || !priceMeasure) return
+      const grew = previousCount.current > 0 && rows.length > previousCount.current
+      previousCount.current = rows.length
+      const narrow = window.matchMedia('(max-width: 800px)').matches
+      if (narrow || priceSheet.clientHeight <= 0) {
+        setBreaks((current) => (current.length === 1 && current[0] === 0 ? current : [0]))
+        setPage((current) => (grew ? 0 : current))
+        return
+      }
+      const measureTable = priceMeasure.closest('table')
+      if (measureTable instanceof HTMLTableElement) measureTable.style.width = `${priceSheet.clientWidth}px`
+      const head = priceSheet.querySelector('thead')
+      const available = priceSheet.clientHeight - (head?.getBoundingClientRect().height ?? 0)
+      const heights = [...priceMeasure.querySelectorAll('tr')].map((row) => row.getBoundingClientRect().height)
+      let starts = pageStarts(heights, available)
+      if (starts.length > 1) starts = pageStarts(heights, available - 52)
+      setBreaks((current) =>
+        current.length === starts.length && current.every((value, index) => value === starts[index]) ? current : starts,
+      )
+      setPage((current) => {
+        const last = Math.max(0, starts.length - 1)
+        if (grew) return last
+        return Math.min(current, last)
+      })
+    }
+
+    layout()
+    const observer = new ResizeObserver(layout)
+    observer.observe(sheet)
+    window.addEventListener('resize', layout)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', layout)
+    }
+  }, [loading, rows, showCommission, showPrices])
+
   return (
     <section className="price-section">
       {loading ? (
@@ -812,11 +889,12 @@ function PriceSection({
           </div>
         </div>
       ) : (
-        <div className="table-wrap">
+        <>
+        <div className="table-wrap price-sheet" ref={sheetRef}>
           <table>
             <PriceHead showPrices={showPrices} showCommission={showCommission} />
             <tbody>
-              {rows.map((row) => (
+              {visibleRows.map((row) => (
                 <PriceRow
                   key={row.id}
                   row={row}
@@ -829,6 +907,44 @@ function PriceSection({
             </tbody>
           </table>
         </div>
+        {pageCount > 1 && (
+          <div className="price-pager">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              disabled={currentPage === 0}
+              onClick={() => setPage(currentPage - 1)}
+            >
+              السابق
+            </button>
+            {Array.from({ length: pageCount }, (_, index) => (
+              <button
+                key={index}
+                type="button"
+                className={index === currentPage ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
+                onClick={() => setPage(index)}
+              >
+                {index + 1}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              disabled={currentPage >= pageCount - 1}
+              onClick={() => setPage(currentPage + 1)}
+            >
+              التالي
+            </button>
+          </div>
+        )}
+        <table className="price-measure" aria-hidden="true" inert>
+          <tbody ref={measureRef}>
+            {rows.map((row) => (
+              <PriceRow key={row.id} row={row} showPrices={showPrices} showCommission={showCommission} />
+            ))}
+          </tbody>
+        </table>
+        </>
       )}
     </section>
   )
