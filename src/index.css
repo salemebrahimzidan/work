@@ -103,7 +103,7 @@ a {
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
   min-height: 0;
   flex: 1;
   overflow-y: auto;
@@ -117,6 +117,7 @@ a {
 
 .nav-menu {
   display: flex;
+  flex: none;
   flex-direction: column;
   gap: 4px;
 }
@@ -179,6 +180,7 @@ a {
 }
 
 .nav-label {
+  flex: none;
   margin-top: 12px;
   padding: 8px 12px 2px;
   font-size: 11px;
@@ -188,19 +190,26 @@ a {
 
 .nav-link {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  flex: none;
   gap: 8px;
   min-height: 40px;
   padding: 8px 10px;
   border-radius: 10px;
   color: #c9e4e0;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.45;
+}
+
+.nav-text {
+  min-width: 0;
+  line-height: 1.45;
 }
 
 .nav-icon {
   display: block;
   flex: none;
+  margin-top: 1px;
 }
 
 .nav-toggle {
