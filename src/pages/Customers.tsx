@@ -7,6 +7,7 @@ import { useHeightPages } from '../lib/useHeightPages'
 import { useAuth } from '../auth/AuthProvider'
 import type { CustomerSummary } from '../lib/types'
 import { SkeletonRows } from '../components/LoadingSkeleton'
+import { PagePager } from '../components/PagePager'
 import Modal from '../components/Modal'
 import CustomerForm from '../components/CustomerForm'
 
@@ -137,34 +138,12 @@ export default function Customers() {
         {!loading && rows.length === 0 && <div className="empty">لا توجد نتائج</div>}
       </div>
       {pages.pageCount > 1 && (
-        <div className="table-pager">
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            disabled={pages.currentPage === 0}
-            onClick={() => pages.setPage(pages.currentPage - 1)}
-          >
-            السابق
-          </button>
-          {Array.from({ length: pages.pageCount }, (_, index) => (
-            <button
-              key={index}
-              type="button"
-              className={index === pages.currentPage ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
-              onClick={() => pages.setPage(index)}
-            >
-              {index + 1}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            disabled={pages.currentPage >= pages.pageCount - 1}
-            onClick={() => pages.setPage(pages.currentPage + 1)}
-          >
-            التالي
-          </button>
-        </div>
+        <PagePager
+          className="table-pager"
+          page={pages.currentPage}
+          pageCount={pages.pageCount}
+          onPage={pages.setPage}
+        />
       )}
       <table className="price-measure" aria-hidden="true" inert>
         <tbody ref={pages.measureRef}>

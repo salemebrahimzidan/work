@@ -1538,14 +1538,71 @@ tbody tr.row-open:hover {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 6px;
   padding-top: 12px;
   flex: none;
+  max-width: 100%;
 }
 
 .price-pager .btn,
 .table-pager .btn {
   min-width: 36px;
+}
+
+.pager-gap,
+.pager-status {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.pager-status {
+  min-width: 72px;
+  text-align: center;
+  color: var(--text);
+}
+
+@media (max-width: 800px) {
+  .app:has(.services-page) {
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .main:has(.services-page) {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    padding-bottom: 12px;
+  }
+
+  .services-page,
+  .services-page .price-section {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .services-page .price-sheet {
+    flex: 1;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .price-pager,
+  .table-pager {
+    gap: 8px;
+    padding-top: 10px;
+  }
+
+  .price-pager .btn,
+  .table-pager .btn {
+    min-width: 44px;
+    min-height: 36px;
+  }
 }
 
 .price-section-head {
