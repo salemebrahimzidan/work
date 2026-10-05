@@ -14,6 +14,7 @@ import {
   type ServicePrice,
 } from '../lib/types'
 import Modal from '../components/Modal'
+import { PagePager } from '../components/PagePager'
 
 function amountField(value: string | null): string {
   if (value == null || value === '') return ''
@@ -812,8 +813,7 @@ function PriceSection({
       if (!priceSheet || !priceMeasure) return
       const grew = previousCount.current > 0 && rows.length > previousCount.current
       previousCount.current = rows.length
-      const narrow = window.matchMedia('(max-width: 800px)').matches
-      if (narrow || priceSheet.clientHeight <= 0) {
+      if (priceSheet.clientHeight <= 0) {
         setBreaks((current) => (current.length === 1 && current[0] === 0 ? current : [0]))
         setPage((current) => (grew ? 0 : current))
         return
@@ -908,34 +908,12 @@ function PriceSection({
           </table>
         </div>
         {pageCount > 1 && (
-          <div className="price-pager">
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              disabled={currentPage === 0}
-              onClick={() => setPage(currentPage - 1)}
-            >
-              السابق
-            </button>
-            {Array.from({ length: pageCount }, (_, index) => (
-              <button
-                key={index}
-                type="button"
-                className={index === currentPage ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'}
-                onClick={() => setPage(index)}
-              >
-                {index + 1}
-              </button>
-            ))}
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              disabled={currentPage >= pageCount - 1}
-              onClick={() => setPage(currentPage + 1)}
-            >
-              التالي
-            </button>
-          </div>
+          <PagePager
+            className="price-pager"
+            page={currentPage}
+            pageCount={pageCount}
+            onPage={setPage}
+          />
         )}
         <table className="price-measure" aria-hidden="true" inert>
           <tbody ref={measureRef}>
