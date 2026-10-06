@@ -14,7 +14,7 @@ interface Props {
   rows: TransactionDetail[]
   loading?: boolean
   showCustomer?: boolean
-  /** Transactions page: phone under the customer, and a note badge instead of the full note. */
+  /** Transactions page: a note badge instead of the full note. */
   officeLayout?: boolean
   emptyLabel?: string
   onChanged?: () => void
@@ -36,6 +36,14 @@ export default function TransactionsTable({
   const [stepsRow, setStepsRow] = useState<TransactionDetail | null>(null)
   const stepsText = services.find((item) => item.name === stepsRow?.service_name)?.steps?.trim() ?? ''
 
+  function billNumber(row: TransactionDetail): string | null {
+    const isFawateer = services.some(
+      (item) => item.name === row.service_name && item.category === 'fawateer',
+    )
+    if (!isFawateer) return null
+    return row.note?.trim() ?? ''
+  }
+
   return (
     <>
       <div className={officeLayout ? 'table-wrap tx-list' : 'table-wrap'}>
@@ -44,6 +52,7 @@ export default function TransactionsTable({
             <tr>
               {showCustomer && <th>العميل</th>}
               <th>المعاملة</th>
+              <th>رقم الفاتورة</th>
               <th>قيمة المعاملة</th>
               {canViewFinance && <th>عمولة المكتب</th>}
               <th>الحالة</th>
@@ -55,22 +64,20 @@ export default function TransactionsTable({
           <tbody>
             {loading && rows.length === 0 ? (
               <SkeletonRows
-                columns={(showCustomer ? 1 : 0) + (canViewFinance ? 1 : 0) + 6}
+                columns={(showCustomer ? 1 : 0) + (canViewFinance ? 1 : 0) + 7}
               />
             ) : rows.map((row) => (
               <tr key={row.id}>
                 {showCustomer && (
                   <td data-label="العميل">
                     <Link to={`/customers/${row.customer_id}`}>{row.customer_name}</Link>
-                    {officeLayout && (
-                      <div className="num muted" dir="ltr">
-                        {row.customer_mobile || '—'}
-                      </div>
-                    )}
                   </td>
                 )}
                 <td data-label="المعاملة">
                   <Link to={`/transactions/${row.id}`}>{row.service_name}</Link>
+                </td>
+                <td className="num" dir="ltr" data-label="رقم الفاتورة">
+                  {billNumber(row) || '—'}
                 </td>
                 <td className="num" data-label="قيمة المعاملة">
                   {row.transaction_value == null ? '—' : money(row.transaction_value)}
@@ -87,7 +94,9 @@ export default function TransactionsTable({
                   />
                 </td>
                 <td className="muted" data-label="ملاحظة">
-                  {officeLayout ? (
+                  {billNumber(row) != null ? (
+                    '—'
+                  ) : officeLayout ? (
                     row.note?.trim() ? (
                       <span className="badge" title={row.note}>
                         ملاحظة
