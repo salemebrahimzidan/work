@@ -3,6 +3,7 @@ import { Ban } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { useCompany } from '../auth/CompanyProvider'
 import { TRANSACTION_DETAIL_COLUMNS, loadOfficeProfitMap } from '../lib/finance'
+import { useServicePrices } from '../lib/hooks'
 import { errorMessage, formatDate, money, transactionStatus } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { DetailSkeleton } from '../components/LoadingSkeleton'
@@ -11,7 +12,13 @@ import type { TransactionDetail } from '../lib/types'
 export default function TransactionDetails() {
   const { id = '' } = useParams()
   const { canViewFinance, loading: companyLoading } = useCompany()
+  const { services } = useServicePrices()
   const [row, setRow] = useState<TransactionDetail | null>(null)
+  const billNumber = services.some(
+    (item) => item.name === row?.service_name && item.category === 'fawateer',
+  )
+    ? row?.note?.trim() ?? ''
+    : null
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -85,6 +92,7 @@ export default function TransactionDetails() {
           <Item label="العميل" value={row.customer_name} href={`/customers/${row.customer_id}`} />
           <Item label="الجوال" value={row.customer_mobile} ltr />
           <Item label="المعاملة" value={row.service_name} />
+          {billNumber != null && <Item label="رقم الفاتورة" value={billNumber || '—'} ltr />}
           <Item
             label="قيمة المعاملة"
             value={row.transaction_value == null ? '—' : money(row.transaction_value)}
@@ -96,7 +104,7 @@ export default function TransactionDetails() {
           <Item label="المدينة" value={row.city || '—'} />
           <Item label="الجنسية" value={row.nationality || '—'} />
         </div>
-        {row.note && (
+        {row.note && billNumber == null && (
           <div className="profile-notes">
             <div className="profile-label">ملاحظة</div>
             <div className="profile-value">{row.note}</div>

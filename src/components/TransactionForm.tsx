@@ -366,6 +366,21 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
           </div>
         )}
 
+        {serviceCategory === 'fawateer' && (
+          <div className="field full">
+            <label htmlFor="note">رقم الفاتورة</label>
+            <input
+              id="note"
+              dir="ltr"
+              type="text"
+              inputMode="text"
+              autoComplete="off"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+            />
+          </div>
+        )}
+
         <div className="field">
           <label htmlFor="transaction_value">
             {serviceCategory === 'fawateer' ? 'قيمة السداد (ر.س) *' : 'قيمة المعاملة (ر.س) *'}
@@ -426,10 +441,12 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
           </p>
         )}
 
-        <div className="field full">
-          <label htmlFor="note">ملاحظة (اختياري)</label>
-          <textarea id="note" value={note} onChange={(e) => setNote(e.target.value)} />
-        </div>
+        {serviceCategory !== 'fawateer' && (
+          <div className="field full">
+            <label htmlFor="note">ملاحظة (اختياري)</label>
+            <textarea id="note" value={note} onChange={(e) => setNote(e.target.value)} />
+          </div>
+        )}
       </div>
 
       <div className="form-actions">

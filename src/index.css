@@ -1189,6 +1189,18 @@ a {
   background: var(--surface);
 }
 
+.tx-list table {
+  min-width: 1080px;
+}
+
+.tx-list td[data-label='المعاملة'] {
+  min-width: 220px;
+}
+
+.tx-list td[data-label='رقم الفاتورة'] {
+  min-width: 150px;
+}
+
 .branch-actions {
   display: flex;
   flex-wrap: wrap;
@@ -3550,7 +3562,7 @@ button.badge-cancelled:hover {
   }
 
   .tx-list table {
-    min-width: 1000px;
+    min-width: 1080px;
   }
 
   .status-circle {
