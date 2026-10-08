@@ -305,7 +305,7 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
                 { value: '', label: '— اختر العميل —' },
                 ...customers.map((customer) => ({
                   value: customer.id,
-                  label: `${customer.full_name} — ${customer.mobile}`,
+                  label: customer.mobile ? `${customer.full_name} — ${customer.mobile}` : customer.full_name,
                 })),
               ]}
             />

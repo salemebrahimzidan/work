@@ -25,26 +25,38 @@ export default function Customers() {
     setLoading(true)
     setError('')
 
-    let query = supabase
-      .from('customer_summary')
-      .select(CUSTOMER_SUMMARY_COLUMNS)
-      .order('created_at', { ascending: false })
-
     const term = search.trim()
-    if (term) {
-      const safe = term.replace(/[%,()]/g, ' ')
-      query = query.or(`full_name.ilike.%${safe}%,mobile.ilike.%${safe}%`)
-    }
+    const safe = term.replace(/[%,()]/g, ' ')
     const iqamaTerm = iqama.trim().replace(/[%,()]/g, '')
-    if (iqamaTerm) query = query.ilike('national_id', `%${iqamaTerm}%`)
+    const customerQuery = (includeProfession: boolean) => {
+      const columns = includeProfession
+        ? CUSTOMER_SUMMARY_COLUMNS
+        : CUSTOMER_SUMMARY_COLUMNS.replace(', profession', '')
+      let query = supabase
+        .from('customer_summary')
+        .select<string, CustomerSummary>(columns)
+        .order('created_at', { ascending: false })
+      if (term) {
+        const match = includeProfession
+          ? `full_name.ilike.%${safe}%,mobile.ilike.%${safe}%,profession.ilike.%${safe}%`
+          : `full_name.ilike.%${safe}%,mobile.ilike.%${safe}%`
+        query = query.or(match)
+      }
+      if (iqamaTerm) query = query.ilike('national_id', `%${iqamaTerm}%`)
+      return query
+    }
 
-    const [customersRes, openRes] = await Promise.all([
-      query,
+    const [firstCustomers, openRes] = await Promise.all([
+      customerQuery(true),
       supabase.from('transactions').select('customer_id').in('status', ['pending', 'in_progress']),
     ])
+    const customersRes =
+      firstCustomers.error && /profession/i.test(firstCustomers.error.message)
+        ? await customerQuery(false)
+        : firstCustomers
 
     if (customersRes.error) setError(errorMessage(customersRes.error))
-    else setRows((customersRes.data ?? []) as CustomerSummary[])
+    else setRows(customersRes.data ?? [])
 
     const counts: Record<string, number> = {}
     if (!openRes.error) {
@@ -127,7 +139,7 @@ export default function Customers() {
           <CustomerHead isAdmin={isAdmin} />
           <tbody>
             {loading && rows.length === 0 ? (
-              <SkeletonRows columns={isAdmin ? 6 : 7} />
+              <SkeletonRows columns={isAdmin ? 7 : 8} />
             ) : (
               visibleRows.map((row) => (
                 <CustomerRow key={row.id} row={row} isAdmin={isAdmin} openCount={openCounts[row.id] ?? 0} />
@@ -171,6 +183,7 @@ function CustomerHead({ isAdmin }: { isAdmin: boolean }) {
     <thead>
       <tr>
         <th>الاسم</th>
+        <th>المهنة</th>
         <th>الجوال</th>
         <th>رقم الإقامة</th>
         <th>المدينة</th>
@@ -203,8 +216,9 @@ function CustomerRow({
           )}
         </span>
       </td>
+      <td>{row.profession?.trim() || '—'}</td>
       <td className="num" dir="ltr">
-        {row.mobile}
+        {row.mobile || '—'}
       </td>
       <td className="num" dir="ltr">
         {row.national_id || '—'}

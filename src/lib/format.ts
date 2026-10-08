@@ -66,6 +66,12 @@ export function errorMessage(error: unknown): string {
     return 'لا تملك صلاحية تنفيذ هذا الإجراء'
   }
   if (/غير قابلة للتعديل/.test(message)) return message
+  if (/profession/i.test(message) && /schema cache|column/i.test(message)) {
+    return 'المهنة غير جاهزة. شغّل ملف 0040_customer_optional_mobile_profession.sql في Supabase ثم حدّث الصفحة.'
+  }
+  if (/customers_mobile_check|mobile_normalized/i.test(message)) {
+    return 'حفظ العميل بدون جوال غير جاهز. شغّل ملف 0040_customer_optional_mobile_profession.sql في Supabase ثم حدّث الصفحة.'
+  }
   return message || 'حدث خطأ غير متوقع'
 }
 

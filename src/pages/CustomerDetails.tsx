@@ -12,7 +12,8 @@ import CustomerForm from '../components/CustomerForm'
 import TransactionForm from '../components/TransactionForm'
 import TransactionsTable from '../components/TransactionsTable'
 
-const CUSTOMER_COLUMNS = 'id, full_name, mobile, national_id, nationality, city, district, notes, created_at'
+const CUSTOMER_COLUMNS =
+  'id, full_name, mobile, profession, national_id, nationality, city, district, notes, created_at'
 
 const STATUS_KEYS = ['pending', 'in_progress', 'completed', 'cancelled'] as const
 type StatusKey = (typeof STATUS_KEYS)[number]
@@ -48,14 +49,20 @@ export default function CustomerDetails() {
     setLoading(true)
     setError('')
     setProfitReady(false)
-    const [customerRes, txRes] = await Promise.all([
-      supabase.from('customers').select(CUSTOMER_COLUMNS).eq('id', id).maybeSingle(),
+    const customerSelect = (columns: string) =>
+      supabase.from('customers').select(columns).eq('id', id).maybeSingle()
+    const [firstCustomer, txRes] = await Promise.all([
+      customerSelect(CUSTOMER_COLUMNS),
       supabase
         .from('transaction_details')
         .select(TRANSACTION_DETAIL_COLUMNS, { count: 'exact' })
         .eq('customer_id', id)
         .order('created_at', { ascending: false }),
     ])
+    const customerRes =
+      firstCustomer.error && /profession/i.test(firstCustomer.error.message)
+        ? await customerSelect(CUSTOMER_COLUMNS.replace(', profession', ''))
+        : firstCustomer
 
     const failure = customerRes.error || txRes.error
     if (failure) setError(errorMessage(failure))
@@ -221,7 +228,8 @@ export default function CustomerDetails() {
       <div className="card">
         <div className="profile-grid">
           <Item label="الاسم" value={customer.full_name} />
-          <Item label="الجوال" value={customer.mobile} ltr />
+          <Item label="المهنة" value={customer.profession?.trim() || '—'} />
+          <Item label="الجوال" value={customer.mobile || '—'} ltr />
           <Item label="رقم الهوية / الإقامة" value={customer.national_id || '—'} ltr />
           <Item label="الجنسية" value={customer.nationality || '—'} />
           <Item label="المدينة" value={customer.city || '—'} />

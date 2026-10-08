@@ -34,6 +34,7 @@ export default function CustomerForm({ customer, onSaved, onCancel }: Props) {
   const { session } = useAuth()
   const [form, setForm] = useState({
     full_name: customer?.full_name ?? '',
+    profession: customer?.profession ?? '',
     mobile: saudiMobile(customer?.mobile ?? '') ?? '',
     national_id: customer?.national_id ?? '',
     nationality: customer?.nationality ?? '',
@@ -70,11 +71,33 @@ export default function CustomerForm({ customer, onSaved, onCancel }: Props) {
     setExistingId(null)
     setBusy(true)
 
+    const name = form.full_name.trim()
+    if (!name) {
+      setError('أدخل الاسم الكامل')
+      setBusy(false)
+      return
+    }
+
+    const typedMobile = form.mobile.trim()
     const localMobile = saudiMobile(form.mobile)
+    if (typedMobile && !localMobile) {
+      setError('أدخل رقم جوال سعودي، مثل 0551234567')
+      setBusy(false)
+      return
+    }
+
+    const profession = form.profession.trim()
+    if (profession.length > 80 || /[\u0000-\u001F\u007F]/.test(profession)) {
+      setError('المهنة غير صحيحة')
+      setBusy(false)
+      return
+    }
+
     const normalized = localMobile ? normalizeMobile(localMobile) : ''
     const payload = {
-      full_name: form.full_name.trim(),
-      mobile: localMobile ?? '',
+      full_name: name,
+      profession: profession || null,
+      mobile: localMobile,
       national_id: form.national_id.trim() || null,
       nationality: form.nationality.trim() || null,
       city: form.city.trim() || null,
@@ -83,12 +106,7 @@ export default function CustomerForm({ customer, onSaved, onCancel }: Props) {
     }
 
     try {
-      if (!localMobile) {
-        setError('أدخل رقم جوال سعودي، مثل 0551234567')
-        return
-      }
-
-      const alreadyId = await findExisting(normalized)
+      const alreadyId = normalized ? await findExisting(normalized) : null
       if (alreadyId) {
         setExistingId(alreadyId)
         return
@@ -142,10 +160,19 @@ export default function CustomerForm({ customer, onSaved, onCancel }: Props) {
         </div>
 
         <div className="field">
-          <label htmlFor="mobile">رقم الجوال *</label>
+          <label htmlFor="profession">المهنة (اختياري)</label>
+          <input
+            id="profession"
+            maxLength={80}
+            value={form.profession}
+            onChange={(e) => set('profession', e.target.value)}
+          />
+        </div>
+
+        <div className="field">
+          <label htmlFor="mobile">رقم الجوال (اختياري)</label>
           <input
             id="mobile"
-            required
             dir="ltr"
             inputMode="tel"
             autoComplete="tel"
