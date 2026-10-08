@@ -4,7 +4,7 @@ export const TRANSACTION_DETAIL_COLUMNS =
   'id, customer_id, customer_name, customer_mobile, nationality, city, service_name, note, created_at, transaction_value, status, cancel_reason'
 
 export const CUSTOMER_SUMMARY_COLUMNS =
-  'id, full_name, mobile, nationality, national_id, city, district, created_at, transactions_count, total_transaction_value'
+  'id, full_name, mobile, profession, nationality, national_id, city, district, created_at, transactions_count, total_transaction_value'
 
 export interface OfficeProfitTotals {
   total_profit: string | number

@@ -20,7 +20,8 @@ export interface Profile {
 export interface Customer {
   id: string
   full_name: string
-  mobile: string
+  mobile: string | null
+  profession: string | null
   national_id: string | null
   nationality: string | null
   city: string | null
@@ -32,7 +33,8 @@ export interface Customer {
 export interface CustomerSummary {
   id: string
   full_name: string
-  mobile: string
+  mobile: string | null
+  profession?: string | null
   nationality: string | null
   national_id: string | null
   city: string | null
