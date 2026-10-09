@@ -2960,7 +2960,7 @@ button.badge-cancelled:hover {
 .login-screen {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(340px, 440px) minmax(0, 1fr);
+  grid-template-columns: 1fr 1fr;
   background:
     radial-gradient(circle at 1px 1px, rgba(16, 47, 45, 0.06) 1px, transparent 0) 0 0 / 18px 18px,
     #f7f4ec;
@@ -2985,20 +2985,6 @@ button.badge-cancelled:hover {
 
 .login-card-brand {
   margin-bottom: 18px;
-}
-
-.login-mark {
-  width: 52px;
-  height: 52px;
-  margin: 0 auto 10px;
-  display: grid;
-  place-items: center;
-  border: 1px solid #d4b15a;
-  border-radius: 14px;
-  background: #0f3d34;
-  color: #f4e2b0;
-  font-size: 22px;
-  font-weight: 700;
 }
 
 .login-card-name {
@@ -3162,11 +3148,11 @@ button.badge-cancelled:hover {
 }
 
 .login-hero-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   text-align: center;
-}
-
-.login-hero .login-mark {
-  margin: 0 auto 16px;
 }
 
 .login-hero h2 {
@@ -3190,8 +3176,8 @@ button.badge-cancelled:hover {
 .login-features {
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 220px));
-  justify-content: center;
+  width: min(100%, 560px);
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin: 26px auto 0;
   padding: 0;
