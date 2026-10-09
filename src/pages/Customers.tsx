@@ -83,9 +83,12 @@ export default function Customers() {
   return (
     <div className="customers-page">
       <div className="page-head">
-        <div>
+        <div className="customers-heading">
           <h1>العملاء</h1>
-          <p className="page-sub">{count(rows.length)} عميل في النتائج</p>
+          <p className="customers-count">
+            <span className="customers-count-num">{count(rows.length)}</span>
+            عميل في النتائج
+          </p>
         </div>
         <button type="button" className="btn btn-primary" onClick={() => setAddOpen(true)}>
           إضافة عميل

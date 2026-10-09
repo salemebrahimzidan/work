@@ -16,7 +16,27 @@ const NO_SERVICE = 'بدون خدمة'
 const RIYADH_TZ = 'Asia/Riyadh'
 const TX_STATUSES = ['pending', 'in_progress', 'completed', 'cancelled'] as const
 
+const STATUS_CIRCLE: Record<
+  TxStatus,
+  { tone: 'pending' | 'progress' | 'completed' | 'cancelled'; color: string; track: string }
+> = {
+  pending: { tone: 'pending', color: '#e8a317', track: '#f8e7c0' },
+  in_progress: { tone: 'progress', color: '#3b82c4', track: '#d7e8f6' },
+  completed: { tone: 'completed', color: '#1f9d55', track: '#d7f0e3' },
+  cancelled: { tone: 'cancelled', color: '#d64545', track: '#f8d6d6' },
+}
+
 type TxStatus = (typeof TX_STATUSES)[number]
+
+const CUSTOMER_SECTIONS = [
+  { id: 'summary', label: 'العملاء' },
+  { id: 'status', label: 'حالات المعاملات' },
+  { id: 'services', label: 'استخدام الخدمات' },
+  { id: 'cities', label: 'حسب المدينة' },
+  { id: 'nationalities', label: 'حسب الجنسية' },
+] as const
+
+type CustomerSection = (typeof CUSTOMER_SECTIONS)[number]['id']
 
 interface CustomerRow {
   id: string
@@ -264,6 +284,7 @@ function CustomerReport({
   onFromDate: (value: string) => void
   onToDate: (value: string) => void
 }) {
+  const [section, setSection] = useState<CustomerSection>('summary')
   const report = useMemo(
     () => buildCustomerReport(customers, transactions, fromDate, toDate),
     [customers, fromDate, toDate, transactions],
@@ -272,6 +293,48 @@ function CustomerReport({
 
   if (loading) return <SkeletonStack count={5} />
   if (error) return <div className="alert alert-error">{error}</div>
+
+  const statusTotal = TX_STATUSES.reduce((sum, status) => sum + byStatus[status], 0)
+  const customerTotal = summary.total
+  const shareOfCustomers = (value: number) => (customerTotal === 0 ? 0 : (value / customerTotal) * 100)
+  const customerRings = [
+    {
+      key: 'total',
+      label: 'إجمالي العملاء',
+      value: summary.total,
+      share: customerTotal === 0 ? 0 : 100,
+      color: '#14919b',
+      ink: '#0b5d57',
+      track: '#d7f3f0',
+    },
+    {
+      key: 'new',
+      label: rangeLimited ? 'عملاء جدد في الفترة' : 'عملاء جدد (كل الفترات)',
+      value: summary.createdInRange,
+      share: shareOfCustomers(summary.createdInRange),
+      color: '#0e7490',
+      ink: '#155e75',
+      track: '#d4eef4',
+    },
+    {
+      key: 'with',
+      label: rangeLimited ? 'عملاء لديهم معاملات في الفترة' : 'عملاء لديهم معاملات',
+      value: summary.withTransactions,
+      share: shareOfCustomers(summary.withTransactions),
+      color: '#2f8f72',
+      ink: '#1d5c4a',
+      track: '#dceee8',
+    },
+    {
+      key: 'without',
+      label: rangeLimited ? 'عملاء بدون معاملات في الفترة' : 'عملاء بدون معاملات',
+      value: summary.withoutTransactions,
+      share: shareOfCustomers(summary.withoutTransactions),
+      color: '#c4a574',
+      ink: '#7a5b32',
+      track: '#f3eadc',
+    },
+  ]
 
   return (
     <>
@@ -294,47 +357,92 @@ function CustomerReport({
         </div>
       </section>
 
-      {invalidRange ? (
-        <div className="alert alert-error">تاريخ البداية بعد تاريخ النهاية.</div>
-      ) : (
-        <>
-          <section className="card" aria-label="ملخص العملاء">
-            <h2 className="card-title">العملاء</h2>
-            <div className="action-grid">
-              <Stat label="إجمالي العملاء" value={summary.total} />
-              <Stat label={rangeLimited ? 'عملاء جدد في الفترة' : 'عملاء جدد (كل الفترات)'} value={summary.createdInRange} />
-              <Stat
-                label={rangeLimited ? 'عملاء لديهم معاملات في الفترة' : 'عملاء لديهم معاملات'}
-                value={summary.withTransactions}
+      <div className="report-tabs report-section-tabs" role="tablist" aria-label="تفاصيل تقرير العملاء">
+        {CUSTOMER_SECTIONS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            id={`customer-tab-${item.id}`}
+            aria-selected={section === item.id}
+            aria-controls={`customer-panel-${item.id}`}
+            className={section === item.id ? 'btn btn-primary' : 'btn btn-ghost'}
+            onClick={() => setSection(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id={`customer-panel-${section}`} aria-labelledby={`customer-tab-${section}`}>
+        {invalidRange && section !== 'cities' && section !== 'nationalities' ? (
+          <div className="alert alert-error">تاريخ البداية بعد تاريخ النهاية.</div>
+        ) : (
+          <>
+            {section === 'summary' && (
+              <section className="card" aria-label="ملخص العملاء">
+                <h2 className="card-title">العملاء</h2>
+                <div className="report-status-board">
+                  {customerRings.map(({ key, ...item }) => (
+                    <CountRing key={key} {...item} caption="عميل" />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {section === 'status' && (
+              <section className="card" aria-label="حالات المعاملات">
+                <h2 className="card-title">حالات المعاملات</h2>
+                <p className="report-note">عدد المعاملات فقط، ضمن الفترة المحددة.</p>
+                <div className="report-status-board">
+                  {TX_STATUSES.map((status) => {
+                    const meta = STATUS_CIRCLE[status]
+                    const value = byStatus[status]
+                    const share = statusTotal === 0 ? 0 : (value / statusTotal) * 100
+                    return (
+                      <div key={status} className={`status-ring is-plain ${meta.tone}`}>
+                        <span
+                          className="status-circle"
+                          style={{
+                            background:
+                              share === 0
+                                ? meta.track
+                                : `conic-gradient(${meta.color} 0% ${share}%, ${meta.track} ${share}% 100%)`,
+                          }}
+                        >
+                          <span className="status-circle-hole">
+                            <span className="status-circle-value num" dir="ltr">
+                              {count(value)}
+                            </span>
+                            <span className="status-circle-caption">معاملة</span>
+                          </span>
+                        </span>
+                        <span className="status-ring-label">{transactionStatus(status).label}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </section>
+            )}
+
+            {section === 'services' && (
+              <GroupTable
+                title="استخدام الخدمات"
+                note="عدد المعاملات حسب اسم الخدمة المسجّل على المعاملة، ضمن الفترة."
+                rows={byService}
+                empty="لا توجد معاملات في هذه الفترة."
               />
-              <Stat
-                label={rangeLimited ? 'عملاء بدون معاملات في الفترة' : 'عملاء بدون معاملات'}
-                value={summary.withoutTransactions}
-              />
-            </div>
-          </section>
+            )}
 
-          <section className="card" aria-label="حالات المعاملات">
-            <h2 className="card-title">حالات المعاملات</h2>
-            <p className="report-note">عدد المعاملات فقط، ضمن الفترة المحددة.</p>
-            <div className="action-grid">
-              {TX_STATUSES.map((status) => (
-                <Stat key={status} label={transactionStatus(status).label} value={byStatus[status]} />
-              ))}
-            </div>
-          </section>
+            {section === 'cities' && (
+              <GroupTable title="العملاء حسب المدينة" note="كل العملاء." rows={byCity} empty="لا يوجد عملاء." />
+            )}
 
-          <GroupTable
-            title="استخدام الخدمات"
-            note="عدد المعاملات حسب اسم الخدمة المسجّل على المعاملة، ضمن الفترة."
-            rows={byService}
-            empty="لا توجد معاملات في هذه الفترة."
-          />
-        </>
-      )}
-
-      <GroupTable title="العملاء حسب المدينة" note="كل العملاء." rows={byCity} empty="لا يوجد عملاء." />
-      <GroupTable title="العملاء حسب الجنسية" note="كل العملاء." rows={byNationality} empty="لا يوجد عملاء." />
+            {section === 'nationalities' && (
+              <GroupTable title="العملاء حسب الجنسية" note="كل العملاء." rows={byNationality} empty="لا يوجد عملاء." />
+            )}
+          </>
+        )}
+      </div>
     </>
   )
 }
@@ -397,11 +505,42 @@ function groupCounts(labels: string[]): { label: string; value: number }[] {
     .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, 'ar'))
 }
 
-function Stat({ label, value, warn = false }: { label: string; value: number; warn?: boolean }) {
+function CountRing({
+  label,
+  caption,
+  value,
+  share,
+  color,
+  ink,
+  track,
+}: {
+  label: string
+  caption: string
+  value: number
+  share: number
+  color: string
+  ink: string
+  track: string
+}) {
   return (
-    <div className={warn ? 'action-stat warn' : 'action-stat'}>
-      <span className="muted">{label}</span>
-      <strong className="stat-value">{count(value)}</strong>
+    <div className="status-ring is-plain">
+      <span
+        className="status-circle"
+        style={{
+          background:
+            share === 0 ? track : `conic-gradient(${color} 0% ${share}%, ${track} ${share}% 100%)`,
+        }}
+      >
+        <span className="status-circle-hole">
+          <span className="status-circle-value num" dir="ltr" style={{ color: ink }}>
+            {count(value)}
+          </span>
+          <span className="status-circle-caption">{caption}</span>
+        </span>
+      </span>
+      <span className="status-ring-label" style={{ color: ink }}>
+        {label}
+      </span>
     </div>
   )
 }
