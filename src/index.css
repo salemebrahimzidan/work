@@ -2047,10 +2047,15 @@ tbody tr.row-open:hover {
   filter: none;
 }
 
+.modal-backdrop:has(> .modal > .modal-body > .tx-form) {
+  align-items: center;
+}
+
 .modal:has(.tx-form) {
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 48px);
+  margin: auto;
   background: #fff;
   border: 1px solid #e6e8ec;
   box-shadow: 0 24px 60px rgba(22, 58, 102, 0.2);
