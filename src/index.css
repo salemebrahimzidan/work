@@ -1841,6 +1841,250 @@ tbody tr.row-open:hover {
   grid-column: 1 / -1;
 }
 
+.tx-form .field {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.tx-form .field > label,
+.tx-form .field > .field-head {
+  flex: 0 0 180px;
+  margin: 0;
+}
+
+.tx-form .field > .field-head {
+  flex-wrap: wrap;
+}
+
+.tx-form input,
+.tx-form .select-trigger {
+  height: 42px;
+  min-height: 42px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.tx-form .field > .select-field,
+.tx-form .field > input,
+.tx-form .field > textarea {
+  flex: 1;
+  min-width: 0;
+}
+
+.tx-form .field:has(textarea) {
+  align-items: flex-start;
+}
+
+.tx-form .field:has(textarea) > label {
+  padding-top: 9px;
+}
+
+.field-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.tx-form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  gap: 10px;
+}
+
+.tx-scroll {
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-inline-end: 2px;
+}
+
+.tx-form .form-grid {
+  align-content: start;
+  gap: 12px;
+}
+
+.tx-form label {
+  color: #3d4d63;
+}
+
+.tx-form input,
+.tx-form textarea,
+.tx-form .select-trigger {
+  border-color: #d5e2f2;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.tx-form input:focus,
+.tx-form textarea:focus,
+.tx-form .select-trigger:hover,
+.tx-form .select-field.open .select-trigger {
+  border-color: #1d5fbf;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(29, 95, 191, 0.16);
+}
+
+.tx-form .service-steps-btn {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #c9dbf4;
+  border-radius: 10px;
+  background: #e8f1fc;
+  color: #1d5fbf;
+  cursor: pointer;
+}
+
+.tx-form .service-steps-btn:hover {
+  background: #dbe8fb;
+  filter: none;
+}
+
+.pay-fields,
+.pay-fields-single {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pay-plus {
+  width: 30px;
+  height: 30px;
+  margin-bottom: 6px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #1d5fbf;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.tx-form .pay-total-label {
+  color: var(--warning);
+  font-weight: 800;
+}
+
+.pay-total-field {
+  background: var(--warning-bg) !important;
+  border-color: #f3d8a7 !important;
+  color: var(--warning) !important;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: default;
+}
+
+.pay-note,
+.pay-hint {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pay-note {
+  color: #9a3b32;
+}
+
+.pay-hint {
+  color: #5b6b80;
+  font-weight: 600;
+}
+
+.tx-form input:read-only:not(.pay-total-field),
+.tx-form input:disabled {
+  background: #e8f1fc;
+  border-color: #c9dbf4;
+  color: #163a66;
+  font-weight: 800;
+  cursor: default;
+}
+
+.tx-form .form-actions {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.tx-form .form-actions .btn {
+  flex: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 14px;
+}
+
+.tx-form .btn-primary {
+  background: #1d5fbf;
+  border-color: #1d5fbf;
+  color: #fff;
+}
+
+.tx-form .btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+.tx-form .btn-ghost {
+  background: #fff;
+  border-color: #d5e2f2;
+  color: #3d4d63;
+}
+
+.tx-form .btn-ghost:hover {
+  background: #e8f1fc;
+  filter: none;
+}
+
+.modal:has(.tx-form) {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 48px);
+  background: #fff;
+  border: 1px solid #e6e8ec;
+  box-shadow: 0 24px 60px rgba(22, 58, 102, 0.2);
+}
+
+.modal:has(.tx-form) .modal-head {
+  border-bottom: 1px solid #e6e8ec;
+  background: #fff;
+}
+
+.modal:has(.tx-form) .modal-head h2 {
+  color: #1c2430;
+}
+
+.modal:has(.tx-form) .modal-close {
+  background: #fff;
+  border-color: #d5e2f2;
+  color: #3d4d63;
+}
+
+.modal:has(.tx-form) .modal-close:hover {
+  background: #e8f1fc;
+  border-color: #1d5fbf;
+  color: #1d5fbf;
+}
+
+.modal:has(.tx-form) .modal-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: #eef3f9;
+}
+
 label {
   font-size: 13px;
   font-weight: 600;
@@ -2614,8 +2858,8 @@ button.badge-cancelled:hover {
 }
 
 .service-steps-btn {
-  align-self: flex-start;
-  margin-top: 8px;
+  flex: none;
+  margin: 0;
 }
 
 .service-steps {
