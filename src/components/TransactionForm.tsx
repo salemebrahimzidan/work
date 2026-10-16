@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
+import { ListChecks } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { errorMessage, linkedText } from '../lib/format'
+import { errorMessage, linkedText, money } from '../lib/format'
 import { useAuth } from '../auth/AuthProvider'
 import { useCompany } from '../auth/CompanyProvider'
 import { loadServiceCommissionMap, loadServiceQuoteCommissionMap } from '../lib/finance'
@@ -39,6 +40,17 @@ function fawateerCommission(value: string): string | null {
   if (amount <= 3000) return '30.00'
   if (amount <= 3500) return '35.00'
   return '40.00'
+}
+
+function fawateerTotal(value: string): string | null {
+  const fee = fawateerCommission(value)
+  const amount = Number(value)
+  if (!fee || !Number.isFinite(amount)) return null
+  return (amount + Number(fee)).toFixed(2)
+}
+
+function amountText(value: string): string {
+  return value.replace(/\.00$/, '')
 }
 
 interface Props {
@@ -289,13 +301,16 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
     onSaved()
   }
 
+  const paymentTotal = serviceCategory === 'fawateer' ? fawateerTotal(transactionValue) : null
+
   return (
-    <form onSubmit={handleSubmit}>
+    <form className="tx-form" onSubmit={handleSubmit}>
       {error && <div className="alert alert-error">{error}</div>}
 
-      <div className="form-grid">
+      <div className="tx-scroll">
+        <div className="form-grid">
         {!fixedCustomerId && (
-          <div className="field full">
+          <div className="field full field-inline">
             <label htmlFor="customer">العميل *</label>
             <SelectField
               id="customer"
@@ -359,8 +374,14 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
               options={serviceNames}
             />
             {selectedService && (
-              <button type="button" className="btn btn-ghost btn-sm service-steps-btn" onClick={() => setStepsOpen(true)}>
-                الخطوات
+              <button
+                type="button"
+                className="service-steps-btn"
+                aria-label="الخطوات"
+                title="الخطوات"
+                onClick={() => setStepsOpen(true)}
+              >
+                <ListChecks size={18} strokeWidth={2} />
               </button>
             )}
           </div>
@@ -381,72 +402,103 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
           </div>
         )}
 
-        <div className="field">
-          <label htmlFor="transaction_value">
-            {serviceCategory === 'fawateer' ? 'قيمة السداد (ر.س) *' : 'قيمة المعاملة (ر.س) *'}
-          </label>
-          <input
-            id="transaction_value"
-            disabled={serviceCategory !== 'fawateer'}
-            readOnly={serviceCategory !== 'fawateer'}
-            dir="ltr"
-            type="number"
-            min="0"
-            step="0.01"
-            inputMode="decimal"
-            value={transactionValue}
-            onChange={(event) => {
-              if (serviceCategory !== 'fawateer') return
-              const value = event.target.value
-              setTransactionValue(value)
-              setCommission(fawateerCommission(value) ?? '')
-              setError('')
-            }}
-          />
-        </div>
-
-        {canViewServiceQuoteCommission && (
-          <div className="field">
-            <label htmlFor="commission">عمولة المكتب (ر.س)</label>
-            <input
-              id="commission"
-              disabled
-              readOnly
-              dir="ltr"
-              type="text"
-              value={
-                serviceCategory === 'fawateer'
-                  ? fawateerCommission(transactionValue)
-                    ? `${fawateerCommission(transactionValue)} ر.س`
-                    : '—'
-                  : commission || '—'
-              }
-            />
-          </div>
-        )}
-
-        {serviceCategory === 'fawateer' && Number(transactionValue) > fawateerPaymentLimit && (
-          <p className="note-line" style={{ gridColumn: '1 / -1', margin: 0 }}>
-            لا توجد عمولة محددة لقيمة سداد أكبر من 4000 ر.س
-          </p>
-        )}
-
-        {serviceCategory !== 'fawateer' && (fromSystem || missingPrice) && (
-          <p className="note-line" style={{ gridColumn: '1 / -1', margin: 0 }}>
-            {fromSystem
-              ? canViewFinance
-                ? 'قيمة المعاملة وعمولة المكتب تُعبأ تلقائياً من أسعار الخدمة.'
-                : 'قيمة المعاملة وعمولة المكتب تُعرضان من أسعار الخدمة لتسعير العميل.'
-              : 'سعر هذه الخدمة غير محدد بعد. يضيفه المشرف من صفحة أسعار الخدمات.'}
-          </p>
-        )}
-
         {serviceCategory !== 'fawateer' && (
-          <div className="field full">
-            <label htmlFor="note">ملاحظة (اختياري)</label>
-            <textarea id="note" value={note} onChange={(e) => setNote(e.target.value)} />
-          </div>
+          <>
+            <div className="field full">
+              <label htmlFor="transaction_value">قيمة المعاملة (ر.س) *</label>
+              <input
+                id="transaction_value"
+                disabled
+                readOnly
+                dir="ltr"
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={transactionValue}
+              />
+            </div>
+
+            {canViewServiceQuoteCommission && (
+              <div className="field full">
+                <label htmlFor="commission">عمولة المكتب (ر.س)</label>
+                <input id="commission" disabled readOnly dir="ltr" type="text" value={commission || '—'} />
+              </div>
+            )}
+
+            {(fromSystem || missingPrice) && (
+              <p className="note-line" style={{ gridColumn: '1 / -1', margin: 0 }}>
+                {fromSystem
+                  ? canViewFinance
+                    ? 'قيمة المعاملة وعمولة المكتب تُعبأ تلقائياً من أسعار الخدمة.'
+                    : 'قيمة المعاملة وعمولة المكتب تُعرضان من أسعار الخدمة لتسعير العميل.'
+                  : 'سعر هذه الخدمة غير محدد بعد. يضيفه المشرف من صفحة أسعار الخدمات.'}
+              </p>
+            )}
+
+            <div className="field full">
+              <label htmlFor="note">ملاحظة (اختياري)</label>
+              <textarea id="note" value={note} onChange={(e) => setNote(e.target.value)} />
+            </div>
+          </>
         )}
+
+        {serviceCategory === 'fawateer' && (
+          <>
+            <div className="field full">
+              <label htmlFor="transaction_value">قيمة السداد (ر.س) *</label>
+              <input
+                id="transaction_value"
+                dir="ltr"
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={transactionValue}
+                onChange={(event) => {
+                  const value = event.target.value
+                  setTransactionValue(value)
+                  setCommission(fawateerCommission(value) ?? '')
+                  setError('')
+                }}
+              />
+            </div>
+
+            {canViewServiceQuoteCommission && (
+              <div className="field full">
+                <label htmlFor="commission">عمولة المكتب (ر.س)</label>
+                <input
+                  id="commission"
+                  className="pay-total-field"
+                  disabled
+                  readOnly
+                  dir="ltr"
+                  type="text"
+                  value={amountText(fawateerCommission(transactionValue) ?? '—')}
+                />
+              </div>
+            )}
+
+            {paymentTotal && canViewServiceQuoteCommission && (
+              <div className="field full">
+                <label className="pay-total-label" htmlFor="payment-total">الإجمالي (ر.س)</label>
+                <input
+                  id="payment-total"
+                  className="pay-total-field"
+                  readOnly
+                  dir="ltr"
+                  type="text"
+                  value={amountText(money(paymentTotal).replace(' ر.س', ''))}
+                />
+              </div>
+            )}
+
+            {Number(transactionValue) > fawateerPaymentLimit && (
+              <p className="pay-note">لا توجد عمولة محددة لقيمة سداد أكبر من 4000 ر.س</p>
+            )}
+          </>
+        )}
+        </div>
       </div>
 
       <div className="form-actions">
