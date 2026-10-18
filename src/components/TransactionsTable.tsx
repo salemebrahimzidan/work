@@ -16,6 +16,9 @@ interface Props {
   showCustomer?: boolean
   /** Transactions page: a note badge instead of the full note. */
   officeLayout?: boolean
+  /** Show the office-profit column even when the account cannot open finance reports. */
+  showProfit?: boolean
+  profitLabel?: string
   emptyLabel?: string
   onChanged?: () => void
 }
@@ -25,11 +28,14 @@ export default function TransactionsTable({
   loading,
   showCustomer = true,
   officeLayout = false,
+  showProfit = false,
+  profitLabel = 'عمولة المكتب',
   emptyLabel = 'لا توجد معاملات',
   onChanged,
 }: Props) {
   const { isAdmin } = useAuth()
   const { canViewFinance } = useCompany()
+  const showOfficeProfit = showProfit || canViewFinance
   const { services } = useServicePrices()
   const [deleting, setDeleting] = useState<TransactionDetail | null>(null)
   const [reasonRow, setReasonRow] = useState<TransactionDetail | null>(null)
@@ -55,7 +61,7 @@ export default function TransactionsTable({
               <th>المعاملة</th>
               <th>رقم الفاتورة</th>
               <th className="num-left">قيمة المعاملة</th>
-              {canViewFinance && <th className="num-left">عمولة المكتب</th>}
+              {showOfficeProfit && <th className="num-left">{profitLabel}</th>}
               <th className="num-left">الإجمالي</th>
               <th>الحالة</th>
               <th>ملاحظة</th>
@@ -66,7 +72,7 @@ export default function TransactionsTable({
           <tbody>
             {loading && rows.length === 0 ? (
               <SkeletonRows
-                columns={(showCustomer ? 1 : 0) + (canViewFinance ? 1 : 0) + 8}
+                columns={(showCustomer ? 1 : 0) + (showOfficeProfit ? 1 : 0) + 8}
               />
             ) : rows.map((row) => (
               <tr key={row.id}>
@@ -86,13 +92,13 @@ export default function TransactionsTable({
                 <td className="num" data-label="قيمة المعاملة">
                   {row.transaction_value == null ? '—' : amountLabel(row.transaction_value)}
                 </td>
-                {canViewFinance && (
-                  <td className="num strong" data-label="عمولة المكتب">
+                {showOfficeProfit && (
+                  <td className="num strong" data-label={profitLabel}>
                     {row.original_profit == null ? '—' : amountLabel(row.original_profit)}
                   </td>
                 )}
                 <td className="num" data-label="الإجمالي">
-                  <RowTotal row={row} includeCommission={canViewFinance} />
+                  <RowTotal row={row} includeCommission={showOfficeProfit} />
                 </td>
                 <td data-label="الحالة">
                   <StatusCell
@@ -155,6 +161,8 @@ export default function TransactionsTable({
 
       <TransactionViewModal
         row={viewing}
+        showProfit={showOfficeProfit}
+        profitLabel={profitLabel}
         onClose={() => setViewing(null)}
         onChanged={onChanged}
       />
@@ -194,14 +202,19 @@ export default function TransactionsTable({
 
 export function TransactionViewModal({
   row,
+  showProfit = false,
+  profitLabel = 'عمولة المكتب',
   onClose,
   onChanged,
 }: {
   row: TransactionDetail | null
+  showProfit?: boolean
+  profitLabel?: string
   onClose: () => void
   onChanged?: () => void
 }) {
   const { canViewFinance } = useCompany()
+  const showOfficeProfit = showProfit || canViewFinance
   const { services } = useServicePrices()
   const [current, setCurrent] = useState<TransactionDetail | null>(row)
 
@@ -231,13 +244,13 @@ export function TransactionViewModal({
             label="قيمة المعاملة"
             value={current.transaction_value == null ? '—' : amountLabel(current.transaction_value)}
           />
-          {canViewFinance && (
+          {showOfficeProfit && (
             <ViewField
-              label="عمولة المكتب"
+              label={profitLabel}
               value={current.original_profit == null ? '—' : amountLabel(current.original_profit)}
             />
           )}
-          <ViewField label="الإجمالي" value={<RowTotal row={current} includeCommission={canViewFinance} />} />
+          <ViewField label="الإجمالي" value={<RowTotal row={current} includeCommission={showOfficeProfit} />} />
           <ViewField label="الحالة" value={<StatusBadge status={current.status} />} />
           <ViewField label="التاريخ" value={formatDate(current.created_at)} />
           <ViewField label="المدينة" value={current.city || '—'} />

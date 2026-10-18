@@ -1266,6 +1266,7 @@ a {
 .tx-list th.num-left,
 .tx-list td[data-label='قيمة المعاملة'],
 .tx-list td[data-label='عمولة المكتب'],
+.tx-list td[data-label='ربح المكتب'],
 .tx-list td[data-label='الإجمالي'],
 .dashboard-recent th.num-left,
 .dashboard-recent td.num-left {

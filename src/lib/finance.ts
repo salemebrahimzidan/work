@@ -41,6 +41,23 @@ export async function loadServiceQuoteCommissionMap(): Promise<Record<string, st
   return commissionMap(data)
 }
 
+/** Catalog office fee by service name for members who cannot read transaction profit. */
+export async function loadQuotedProfitByServiceName(): Promise<Record<string, string>> {
+  const [fees, servicesRes] = await Promise.all([
+    loadServiceQuoteCommissionMap(),
+    supabase.from('services').select('id, name, manual, category'),
+  ])
+  if (servicesRes.error) throw servicesRes.error
+  const map: Record<string, string> = {}
+  for (const service of servicesRes.data ?? []) {
+    if (service.manual || service.category === 'fawateer') continue
+    const fee = fees[String(service.id)]
+    if (fee == null || fee === '') continue
+    map[String(service.name)] = fee
+  }
+  return map
+}
+
 function commissionMap(data: unknown): Record<string, string | null> {
   const map: Record<string, string | null> = {}
   for (const row of (data ?? []) as { id: string; commission: string | number | null }[]) {
