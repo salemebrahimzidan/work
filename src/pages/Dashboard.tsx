@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import CustomerForm from '../components/CustomerForm'
 import { SkeletonRows } from '../components/LoadingSkeleton'
 import Modal from '../components/Modal'
 import TransactionForm from '../components/TransactionForm'
+import { TransactionViewModal, amountLabel } from '../components/TransactionsTable'
 import { useCompany } from '../auth/CompanyProvider'
-import { loadOfficeProfitMap, loadOfficeProfitTotals } from '../lib/finance'
+import { TRANSACTION_DETAIL_COLUMNS, loadOfficeProfitMap, loadOfficeProfitTotals } from '../lib/finance'
 import { supabase } from '../lib/supabase'
-import { count, errorMessage, formatDate, money, transactionStatus } from '../lib/format'
-import type { DashboardStats } from '../lib/types'
+import { count, errorMessage, formatDate, transactionStatus } from '../lib/format'
+import type { DashboardStats, TransactionDetail } from '../lib/types'
 
 const RECENT_LIMIT = 5
-const RECENT_COLUMNS = 'id, customer_name, service_name, transaction_value, status, created_at'
 
 const STATUSES = [
   { status: 'pending', label: 'قيد الانتظار', tone: 'pending', color: '#e8a317' },
@@ -21,16 +21,6 @@ const STATUSES = [
 ] as const
 
 type StatusKey = (typeof STATUSES)[number]['status']
-
-interface RecentTransaction {
-  id: string
-  customer_name: string
-  service_name: string
-  transaction_value: string | null
-  status: string
-  created_at: string
-  original_profit?: string
-}
 
 function monthLabel() {
   const monthName = new Intl.DateTimeFormat('ar-SA', {
@@ -43,7 +33,6 @@ function monthLabel() {
 }
 
 export default function Dashboard() {
-  const navigate = useNavigate()
   const { canViewFinance, loading: companyLoading } = useCompany()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [statusCounts, setStatusCounts] = useState<Record<StatusKey, number>>({
@@ -52,7 +41,8 @@ export default function Dashboard() {
     cancelled: 0,
     completed: 0,
   })
-  const [recent, setRecent] = useState<RecentTransaction[]>([])
+  const [recent, setRecent] = useState<TransactionDetail[]>([])
+  const [viewing, setViewing] = useState<TransactionDetail | null>(null)
   const [profit, setProfit] = useState({ total: 0, today: 0, month: 0 })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -66,7 +56,7 @@ export default function Dashboard() {
       supabase.rpc('dashboard_stats'),
       supabase
         .from('transaction_details')
-        .select(RECENT_COLUMNS)
+        .select(TRANSACTION_DETAIL_COLUMNS)
         .order('created_at', { ascending: false })
         .limit(RECENT_LIMIT),
       ...STATUSES.map((item) =>
@@ -86,7 +76,7 @@ export default function Dashboard() {
     })
     setStatusCounts(next)
 
-    const latest = (recentRes.data ?? []) as RecentTransaction[]
+    const latest = (recentRes.data ?? []) as TransactionDetail[]
     if (canViewFinance) {
       try {
         const [totals, profits] = await Promise.all([loadOfficeProfitTotals(), loadOfficeProfitMap()])
@@ -114,10 +104,6 @@ export default function Dashboard() {
   }, [companyLoading, load])
 
   const totalStatuses = STATUSES.reduce((sum, item) => sum + statusCounts[item.status], 0)
-
-  function openRecent(id: string) {
-    navigate(`/transactions/${id}`)
-  }
 
   return (
     <>
@@ -166,10 +152,10 @@ export default function Dashboard() {
             tone="profit"
             title="الأرباح"
             caption="إجمالي الأرباح"
-            value={money(profit.total)}
+            value={amountLabel(profit.total)}
             items={[
-              { label: 'اليوم', value: money(profit.today) },
-              { label: monthLabel(), value: money(profit.month) },
+              { label: 'اليوم', value: amountLabel(profit.today) },
+              { label: monthLabel(), value: amountLabel(profit.month) },
             ]}
           />
         )}
@@ -212,8 +198,8 @@ export default function Dashboard() {
               <tr>
                 <th>العميل</th>
                 <th>المعاملة</th>
-                <th>قيمة المعاملة</th>
-                {canViewFinance && <th>عمولة المكتب</th>}
+                <th className="num-left">قيمة المعاملة</th>
+                {canViewFinance && <th className="num-left">عمولة المكتب</th>}
                 <th>الحالة</th>
                 <th>التاريخ</th>
               </tr>
@@ -224,29 +210,22 @@ export default function Dashboard() {
               ) : recent.map((row) => {
                 const status = transactionStatus(row.status)
                 return (
-                  <tr
-                    key={row.id}
-                    className="dashboard-recent-row"
-                    tabIndex={0}
-                    role="link"
-                    aria-label={`${row.customer_name} — ${row.service_name}`}
-                    onClick={() => openRecent(row.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        openRecent(row.id)
-                      }
-                    }}
-                  >
-                    <td>{row.customer_name}</td>
-                    <td>{row.service_name}</td>
-                    <td className="num">{row.transaction_value == null ? '—' : money(row.transaction_value)}</td>
+                  <tr key={row.id} className="dashboard-recent-row">
+                    <td>
+                      <Link to={`/customers/${row.customer_id}`}>{row.customer_name}</Link>
+                    </td>
+                    <td>
+                      <button type="button" className="tx-name-link" onClick={() => setViewing(row)}>
+                        {row.service_name}
+                      </button>
+                    </td>
+                    <td className="num num-left">{row.transaction_value == null ? '—' : amountLabel(row.transaction_value)}</td>
                     {canViewFinance && (
-                      <td className="num strong">
-                        {row.original_profit == null ? '—' : money(row.original_profit)}
+                      <td className="num strong num-left">
+                        {row.original_profit == null ? '—' : amountLabel(row.original_profit)}
                       </td>
                     )}
-                    <td>
+                    <td className="status-cell">
                       <span className={status.badge}>{status.label}</span>
                     </td>
                     <td className="num muted">{formatDate(row.created_at)}</td>
@@ -258,6 +237,12 @@ export default function Dashboard() {
           {!loading && recent.length === 0 && <div className="empty">لا توجد معاملات حديثة</div>}
         </div>
       </section>
+
+      <TransactionViewModal
+        row={viewing}
+        onClose={() => setViewing(null)}
+        onChanged={() => void load()}
+      />
 
       <Modal title="إضافة عميل" open={customerOpen} onClose={() => setCustomerOpen(false)}>
         <CustomerForm
@@ -298,13 +283,6 @@ function SummaryCard({
   return (
     <section className={`summary-card ${tone}`}>
       <div className="summary-top">
-        <div>
-          <h2 className="summary-kicker">{title}</h2>
-          <div className="summary-value num" dir="ltr">
-            {value}
-          </div>
-          <p className="summary-caption">{caption}</p>
-        </div>
         <span className="summary-mark" aria-hidden="true">
           {tone === 'customers' && (
             <svg viewBox="0 0 24 24" width="20" height="20">
@@ -322,11 +300,18 @@ function SummaryCard({
           )}
           {tone === 'profit' && (
             <svg viewBox="0 0 24 24" width="20" height="20">
-              <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="1.8" />
-              <path d="M12 7.5v9M9.2 9.4c.5-1 1.5-1.5 2.8-1.5 1.7 0 2.8.8 2.8 2.1S13.7 12 12 12s-2.8.8-2.8 2.1 1.1 2.1 2.8 2.1c1.3 0 2.3-.5 2.8-1.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              <path d="M4 16.5l5-5 3.2 3.2L20 7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M14 7h6v6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           )}
         </span>
+        <div>
+          <h2 className="summary-kicker">{title}</h2>
+          <p className="summary-caption">{caption}</p>
+        </div>
+      </div>
+      <div className="summary-value num" dir="ltr">
+        {value}
       </div>
       <dl className="summary-foot">
         {items.map((item) => (
