@@ -29,7 +29,7 @@ export default function TransactionsTable({
   showCustomer = true,
   officeLayout = false,
   showProfit = false,
-  profitLabel = 'عمولة المكتب',
+  profitLabel = 'نسبة المكتب',
   emptyLabel = 'لا توجد معاملات',
   onChanged,
 }: Props) {
@@ -203,7 +203,7 @@ export default function TransactionsTable({
 export function TransactionViewModal({
   row,
   showProfit = false,
-  profitLabel = 'عمولة المكتب',
+  profitLabel = 'نسبة المكتب',
   onClose,
   onChanged,
 }: {
@@ -395,13 +395,21 @@ export function amountLabel(value: string | number | null | undefined): string {
   return money(value).replace(/ ر\.س$/, '').replace(/\.00$/, '')
 }
 
-function RowTotal({ row, includeCommission }: { row: TransactionDetail; includeCommission: boolean }) {
+export function officeTotalLabel(
+  row: { transaction_value?: string | number | null; original_profit?: string | number | null },
+  includeShare = true,
+): string {
   const value = Number(row.transaction_value)
-  const commission = Number(row.original_profit)
-  const hasValue = row.transaction_value != null && Number.isFinite(value)
-  const hasCommission = includeCommission && row.original_profit != null && Number.isFinite(commission)
-  if (!hasValue && !hasCommission) return '—'
-  const amount = amountLabel((hasValue ? value : 0) + (hasCommission ? commission : 0))
+  const share = Number(row.original_profit)
+  const hasValue = row.transaction_value != null && row.transaction_value !== '' && Number.isFinite(value)
+  const hasShare = includeShare && row.original_profit != null && row.original_profit !== '' && Number.isFinite(share)
+  if (!hasValue && !hasShare) return '—'
+  return amountLabel((hasValue ? value : 0) + (hasShare ? share : 0))
+}
+
+function RowTotal({ row, includeCommission }: { row: TransactionDetail; includeCommission: boolean }) {
+  const amount = officeTotalLabel(row, includeCommission)
+  if (amount === '—') return amount
   return <span className="tx-total">{amount}</span>
 }
 

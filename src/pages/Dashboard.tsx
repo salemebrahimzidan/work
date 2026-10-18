@@ -4,9 +4,9 @@ import CustomerForm from '../components/CustomerForm'
 import { SkeletonRows } from '../components/LoadingSkeleton'
 import Modal from '../components/Modal'
 import TransactionForm from '../components/TransactionForm'
-import { TransactionViewModal, amountLabel } from '../components/TransactionsTable'
+import { TransactionViewModal, amountLabel, officeTotalLabel } from '../components/TransactionsTable'
 import { useCompany } from '../auth/CompanyProvider'
-import { TRANSACTION_DETAIL_COLUMNS, loadOfficeProfitMap, loadOfficeProfitTotals } from '../lib/finance'
+import { TRANSACTION_DETAIL_COLUMNS, attachQuotedOfficeShare, loadOfficeProfitMap, loadOfficeProfitTotals } from '../lib/finance'
 import { supabase } from '../lib/supabase'
 import { count, errorMessage, formatDate, transactionStatus } from '../lib/format'
 import type { DashboardStats, TransactionDetail } from '../lib/types'
@@ -93,7 +93,12 @@ export default function Dashboard() {
       }
     } else {
       setProfit({ total: 0, today: 0, month: 0 })
-      setRecent(latest)
+      try {
+        setRecent(await attachQuotedOfficeShare(latest))
+      } catch (profitError) {
+        setRecent(latest)
+        if (!statsRes.error) setError(errorMessage(profitError))
+      }
     }
     setLoading(false)
   }, [canViewFinance])
@@ -199,16 +204,18 @@ export default function Dashboard() {
                 <th>العميل</th>
                 <th>المعاملة</th>
                 <th className="num-left">قيمة المعاملة</th>
-                {canViewFinance && <th className="num-left">عمولة المكتب</th>}
+                <th className="num-left">نسبة المكتب</th>
+                <th className="num-left">الإجمالي</th>
                 <th>الحالة</th>
                 <th>التاريخ</th>
               </tr>
             </thead>
             <tbody>
               {loading && recent.length === 0 ? (
-                <SkeletonRows columns={canViewFinance ? 6 : 5} />
+                <SkeletonRows columns={7} />
               ) : recent.map((row) => {
                 const status = transactionStatus(row.status)
+                const total = officeTotalLabel(row)
                 return (
                   <tr key={row.id} className="dashboard-recent-row">
                     <td>
@@ -220,11 +227,12 @@ export default function Dashboard() {
                       </button>
                     </td>
                     <td className="num num-left">{row.transaction_value == null ? '—' : amountLabel(row.transaction_value)}</td>
-                    {canViewFinance && (
-                      <td className="num strong num-left">
-                        {row.original_profit == null ? '—' : amountLabel(row.original_profit)}
-                      </td>
-                    )}
+                    <td className="num strong num-left">
+                      {row.original_profit == null ? '—' : amountLabel(row.original_profit)}
+                    </td>
+                    <td className="num num-left">
+                      {total === '—' ? total : <span className="tx-total">{total}</span>}
+                    </td>
                     <td className="status-cell">
                       <span className={status.badge}>{status.label}</span>
                     </td>
@@ -240,6 +248,7 @@ export default function Dashboard() {
 
       <TransactionViewModal
         row={viewing}
+        showProfit
         onClose={() => setViewing(null)}
         onChanged={() => void load()}
       />
