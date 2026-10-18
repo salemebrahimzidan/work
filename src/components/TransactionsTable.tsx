@@ -55,6 +55,7 @@ export default function TransactionsTable({
               <th>رقم الفاتورة</th>
               <th>قيمة المعاملة</th>
               {canViewFinance && <th>عمولة المكتب</th>}
+              <th>الإجمالي</th>
               <th>الحالة</th>
               <th>ملاحظة</th>
               <th>التاريخ</th>
@@ -64,7 +65,7 @@ export default function TransactionsTable({
           <tbody>
             {loading && rows.length === 0 ? (
               <SkeletonRows
-                columns={(showCustomer ? 1 : 0) + (canViewFinance ? 1 : 0) + 7}
+                columns={(showCustomer ? 1 : 0) + (canViewFinance ? 1 : 0) + 8}
               />
             ) : rows.map((row) => (
               <tr key={row.id}>
@@ -87,6 +88,9 @@ export default function TransactionsTable({
                     {row.original_profit == null ? '—' : money(row.original_profit)}
                   </td>
                 )}
+                <td className="num" data-label="الإجمالي">
+                  <RowTotal row={row} includeCommission={canViewFinance} />
+                </td>
                 <td data-label="الحالة">
                   <StatusCell
                     row={row}
@@ -165,6 +169,20 @@ export default function TransactionsTable({
           />
         )}
       </Modal>
+    </>
+  )
+}
+
+function RowTotal({ row, includeCommission }: { row: TransactionDetail; includeCommission: boolean }) {
+  const value = Number(row.transaction_value)
+  const commission = Number(row.original_profit)
+  const hasValue = row.transaction_value != null && Number.isFinite(value)
+  const hasCommission = includeCommission && row.original_profit != null && Number.isFinite(commission)
+  if (!hasValue && !hasCommission) return '—'
+  const amount = money((hasValue ? value : 0) + (hasCommission ? commission : 0)).replace(/ ر\.س$/, '')
+  return (
+    <>
+      <span className="tx-total">{amount}</span> ر.س
     </>
   )
 }

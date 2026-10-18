@@ -1255,6 +1255,15 @@ a {
   min-width: 150px;
 }
 
+.tx-total {
+  display: inline-block;
+  color: var(--warning);
+  font-weight: 800;
+  background: var(--warning-bg);
+  border-radius: 8px;
+  padding: 2px 8px;
+}
+
 .branch-actions {
   display: flex;
   flex-wrap: wrap;
