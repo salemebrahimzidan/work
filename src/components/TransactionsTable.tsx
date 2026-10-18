@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Trash2 } from 'lucide-react'
+import { useState, type FormEvent, type ReactNode } from 'react'
+import { Ban, Eye, ListChecks, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { useCompany } from '../auth/CompanyProvider'
@@ -34,6 +34,7 @@ export default function TransactionsTable({
   const [deleting, setDeleting] = useState<TransactionDetail | null>(null)
   const [reasonRow, setReasonRow] = useState<TransactionDetail | null>(null)
   const [stepsRow, setStepsRow] = useState<TransactionDetail | null>(null)
+  const [viewing, setViewing] = useState<TransactionDetail | null>(null)
   const stepsText = services.find((item) => item.name === stepsRow?.service_name)?.steps?.trim() ?? ''
 
   function billNumber(row: TransactionDetail): string | null {
@@ -53,9 +54,9 @@ export default function TransactionsTable({
               {showCustomer && <th>العميل</th>}
               <th>المعاملة</th>
               <th>رقم الفاتورة</th>
-              <th>قيمة المعاملة</th>
-              {canViewFinance && <th>عمولة المكتب</th>}
-              <th>الإجمالي</th>
+              <th className="num-left">قيمة المعاملة</th>
+              {canViewFinance && <th className="num-left">عمولة المكتب</th>}
+              <th className="num-left">الإجمالي</th>
               <th>الحالة</th>
               <th>ملاحظة</th>
               <th>التاريخ</th>
@@ -75,17 +76,19 @@ export default function TransactionsTable({
                   </td>
                 )}
                 <td data-label="المعاملة">
-                  <Link to={`/transactions/${row.id}`}>{row.service_name}</Link>
+                  <button type="button" className="tx-name-link" onClick={() => setViewing(row)}>
+                    {row.service_name}
+                  </button>
                 </td>
                 <td className="num" dir="ltr" data-label="رقم الفاتورة">
                   {billNumber(row) || '—'}
                 </td>
                 <td className="num" data-label="قيمة المعاملة">
-                  {row.transaction_value == null ? '—' : money(row.transaction_value)}
+                  {row.transaction_value == null ? '—' : amountLabel(row.transaction_value)}
                 </td>
                 {canViewFinance && (
                   <td className="num strong" data-label="عمولة المكتب">
-                    {row.original_profit == null ? '—' : money(row.original_profit)}
+                    {row.original_profit == null ? '—' : amountLabel(row.original_profit)}
                   </td>
                 )}
                 <td className="num" data-label="الإجمالي">
@@ -117,7 +120,17 @@ export default function TransactionsTable({
                 </td>
                 <td data-label="إجراءات">
                   <div className="row-actions">
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setStepsRow(row)}>
+                    <button
+                      type="button"
+                      className="tx-action tx-action-icon"
+                      aria-label="عرض"
+                      title="عرض"
+                      onClick={() => setViewing(row)}
+                    >
+                      <Eye size={16} strokeWidth={2} aria-hidden="true" />
+                    </button>
+                    <button type="button" className="tx-action" onClick={() => setStepsRow(row)}>
+                      <ListChecks size={15} strokeWidth={2} aria-hidden="true" />
                       الخطوات
                     </button>
                     {isAdmin && (
@@ -139,6 +152,54 @@ export default function TransactionsTable({
         </table>
         {!loading && rows.length === 0 && <div className="empty">{emptyLabel}</div>}
       </div>
+
+      <Modal
+        title={viewing?.service_name ?? 'عرض المعاملة'}
+        center
+        open={Boolean(viewing)}
+        onClose={() => setViewing(null)}
+      >
+        {viewing && (
+          <div className="tx-view">
+            <ViewField label="العميل" value={viewing.customer_name} />
+            <ViewField label="الجوال" value={viewing.customer_mobile || '—'} ltr />
+            <ViewField label="المعاملة" value={viewing.service_name} />
+            {billNumber(viewing) != null && (
+              <ViewField label="رقم الفاتورة" value={billNumber(viewing) || '—'} ltr />
+            )}
+            <ViewField
+              label="قيمة المعاملة"
+              value={viewing.transaction_value == null ? '—' : amountLabel(viewing.transaction_value)}
+            />
+            {canViewFinance && (
+              <ViewField
+                label="عمولة المكتب"
+                value={viewing.original_profit == null ? '—' : amountLabel(viewing.original_profit)}
+              />
+            )}
+            <ViewField label="الإجمالي" value={<RowTotal row={viewing} includeCommission={canViewFinance} />} />
+            <ViewField label="الحالة" value={<StatusBadge status={viewing.status} />} />
+            <ViewField label="التاريخ" value={formatDate(viewing.created_at)} />
+            <ViewField label="المدينة" value={viewing.city || '—'} />
+            <ViewField label="الجنسية" value={viewing.nationality || '—'} />
+            {viewing.note && billNumber(viewing) == null && (
+              <ViewField label="ملاحظة" value={viewing.note} />
+            )}
+            {viewing.status === 'cancelled' && (
+              <ViewField label="سبب الإلغاء" value={viewing.cancel_reason?.trim() || 'لا يوجد سبب'} />
+            )}
+            {(viewing.status === 'pending' || viewing.status === 'in_progress') && (
+              <PopupStatus
+                row={viewing}
+                onChanged={(status, reason) => {
+                  setViewing({ ...viewing, status, cancel_reason: reason ?? viewing.cancel_reason })
+                  onChanged?.()
+                }}
+              />
+            )}
+          </div>
+        )}
+      </Modal>
 
       <Modal title="الخطوات" subtitle={stepsRow?.service_name} center open={Boolean(stepsRow)} onClose={() => setStepsRow(null)}>
         {stepsText ? (
@@ -173,18 +234,135 @@ export default function TransactionsTable({
   )
 }
 
+function PopupStatus({
+  row,
+  onChanged,
+}: {
+  row: TransactionDetail
+  onChanged: (status: NonNullable<TransactionDetail['status']>, reason?: string) => void
+}) {
+  const [mode, setMode] = useState<'cancel' | null>(null)
+  const [reason, setReason] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const next = row.status === 'in_progress' ? 'completed' : 'in_progress'
+  const nextLabel = next === 'completed' ? 'إتمام المعاملة' : 'بدء التنفيذ'
+
+  async function changeStatus(status: 'in_progress' | 'completed' | 'cancelled', cancelReason?: string) {
+    setError('')
+    setBusy(true)
+    const { error: saveError } = await supabase.rpc('set_transaction_status', {
+      p_transaction_id: row.id,
+      p_status: status,
+      p_reason: cancelReason ?? null,
+    })
+    setBusy(false)
+    if (saveError) {
+      setError(errorMessage(saveError))
+      return
+    }
+    setMode(null)
+    setReason('')
+    onChanged(status, cancelReason)
+  }
+
+  async function confirmCancel(event: FormEvent) {
+    event.preventDefault()
+    if (!reason.trim()) {
+      setError('سبب الإلغاء مطلوب')
+      return
+    }
+    await changeStatus('cancelled', reason.trim())
+  }
+
+  return (
+    <div className="tx-view-status">
+      {error && <div className="alert alert-error">{error}</div>}
+      {mode === 'cancel' ? (
+        <form className="tx-view-cancel" onSubmit={(event) => void confirmCancel(event)}>
+          <label htmlFor="popup-cancel-reason">سبب الإلغاء *</label>
+          <textarea
+            id="popup-cancel-reason"
+            required
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="اكتب سبب الإلغاء"
+          />
+          <div className="tx-view-status-actions">
+            <button type="submit" className="btn btn-danger" disabled={busy}>
+              {busy ? 'جارٍ الإلغاء…' : 'تأكيد الإلغاء'}
+            </button>
+            <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setMode(null)}>
+              رجوع
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="tx-view-status-actions">
+          <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void changeStatus(next)}>
+            {busy ? 'جارٍ الحفظ…' : nextLabel}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            disabled={busy}
+            onClick={() => {
+              setError('')
+              setMode('cancel')
+            }}
+          >
+            <Ban size={16} strokeWidth={2} aria-hidden="true" />
+            إلغاء المعاملة
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StatusBadge({ status }: { status: TransactionDetail['status'] }) {
+  const item = transactionStatus(status)
+  return <span className={item.badge}>{item.label}</span>
+}
+
+function ViewField({
+  label,
+  value,
+  ltr,
+}: {
+  label: string
+  value: ReactNode
+  ltr?: boolean
+}) {
+  const empty = value === '—'
+  return (
+    <div className={empty ? 'tx-view-row is-empty' : 'tx-view-row'}>
+      <div className="tx-view-label">{label}</div>
+      <div className="tx-view-value">
+        {ltr ? (
+          <span className="num" dir="ltr">
+            {value}
+          </span>
+        ) : (
+          value
+        )}
+      </div>
+    </div>
+  )
+}
+
+function amountLabel(value: string | number | null | undefined): string {
+  return money(value).replace(/ ر\.س$/, '').replace(/\.00$/, '')
+}
+
 function RowTotal({ row, includeCommission }: { row: TransactionDetail; includeCommission: boolean }) {
   const value = Number(row.transaction_value)
   const commission = Number(row.original_profit)
   const hasValue = row.transaction_value != null && Number.isFinite(value)
   const hasCommission = includeCommission && row.original_profit != null && Number.isFinite(commission)
   if (!hasValue && !hasCommission) return '—'
-  const amount = money((hasValue ? value : 0) + (hasCommission ? commission : 0)).replace(/ ر\.س$/, '')
-  return (
-    <>
-      <span className="tx-total">{amount}</span> ر.س
-    </>
-  )
+  const amount = amountLabel((hasValue ? value : 0) + (hasCommission ? commission : 0))
+  return <span className="tx-total">{amount}</span>
 }
 
 function StatusCell({ row, onShowReason }: { row: TransactionDetail; onShowReason?: () => void }) {

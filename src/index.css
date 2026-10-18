@@ -1255,10 +1255,19 @@ a {
   min-width: 150px;
 }
 
+.tx-list th.num-left,
+.tx-list td[data-label='قيمة المعاملة'],
+.tx-list td[data-label='عمولة المكتب'],
+.tx-list td[data-label='الإجمالي'] {
+  text-align: left;
+  direction: ltr;
+}
+
 .tx-total {
   display: inline-block;
   color: var(--warning);
   font-weight: 800;
+  text-align: left;
   background: var(--warning-bg);
   border-radius: 8px;
   padding: 2px 8px;
@@ -1486,6 +1495,34 @@ tbody tr:hover {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.tx-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid #d5e2f2;
+  border-radius: 8px;
+  background: #f4f8fd;
+  color: #1d4f91;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tx-action-icon {
+  width: 32px;
+  padding: 0;
+}
+
+.tx-action:hover {
+  background: #e7f0fb;
+  border-color: #b9d0ee;
 }
 
 tbody tr.row-open {
@@ -2579,6 +2616,11 @@ button.badge-cancelled:hover {
   gap: 6px;
 }
 
+.status-cell .badge {
+  white-space: nowrap;
+  width: max-content;
+}
+
 .status-path {
   display: flex;
   align-items: center;
@@ -2943,6 +2985,112 @@ button.badge-cancelled:hover {
   min-height: 0;
   padding: 14px;
   background: #f7f8f9;
+}
+
+.modal-center:has(.tx-view) {
+  max-width: 680px;
+}
+
+.modal-center:has(.tx-view) .modal-body {
+  background: #fff;
+  padding: 8px 22px 18px;
+}
+
+.tx-name-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 700;
+  text-align: start;
+  cursor: pointer;
+}
+
+.tx-name-link:hover {
+  color: var(--primary-dark);
+}
+
+.tx-view {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 28px;
+}
+
+.tx-view-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 46px;
+  margin: 0;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid #eef1f4;
+  border-radius: 0;
+  background: transparent;
+}
+
+.tx-view-label {
+  flex: none;
+  color: #8b95a5;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tx-view-value {
+  flex: 1;
+  min-width: 0;
+  color: #1c2430;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+.tx-view-row.is-empty .tx-view-value {
+  color: #98a2b3;
+  font-weight: 600;
+}
+
+.tx-view-value .badge {
+  font-size: 13px;
+  padding: 3px 10px;
+}
+
+.tx-view-status {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+}
+
+.tx-view-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.tx-view-cancel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tx-view-cancel label {
+  color: #697586;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.tx-view-cancel textarea {
+  min-height: 72px;
+  resize: vertical;
 }
 
 .modal-center:has(.service-add-form) {
