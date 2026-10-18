@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { useCompany } from '../auth/CompanyProvider'
-import { TRANSACTION_DETAIL_COLUMNS, loadOfficeProfitMap } from '../lib/finance'
+import { TRANSACTION_DETAIL_COLUMNS, loadOfficeProfitMap, loadQuotedProfitByServiceName } from '../lib/finance'
 import { supabase } from '../lib/supabase'
 import { count, errorMessage, formatDate, money } from '../lib/format'
 import type { Customer, TransactionDetail } from '../lib/types'
@@ -72,17 +72,18 @@ export default function CustomerDetails() {
       const total = txRes.count ?? list.length
       setTransactionCount(total)
       setListComplete(list.length >= total)
-      if (canViewFinance) {
-        try {
+      try {
+        if (canViewFinance) {
           const profits = await loadOfficeProfitMap()
           setRows(list.map((row) => ({ ...row, original_profit: profits[row.id] })))
-          setProfitReady(true)
-        } catch (profitError) {
-          setRows(list)
-          setError(errorMessage(profitError))
+        } else {
+          const profits = await loadQuotedProfitByServiceName()
+          setRows(list.map((row) => ({ ...row, original_profit: profits[row.service_name] })))
         }
-      } else {
+        setProfitReady(true)
+      } catch (profitError) {
         setRows(list)
+        setError(errorMessage(profitError))
       }
     }
     setLoading(false)
@@ -311,6 +312,8 @@ export default function CustomerDetails() {
               rows={visibleRows}
               loading={loading}
               showCustomer={false}
+              showProfit
+              profitLabel="ربح المكتب"
               officeLayout
               emptyLabel={
                 filterActive
