@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Ban, Eye, ListChecks, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
@@ -153,53 +153,11 @@ export default function TransactionsTable({
         {!loading && rows.length === 0 && <div className="empty">{emptyLabel}</div>}
       </div>
 
-      <Modal
-        title={viewing?.service_name ?? 'عرض المعاملة'}
-        center
-        open={Boolean(viewing)}
+      <TransactionViewModal
+        row={viewing}
         onClose={() => setViewing(null)}
-      >
-        {viewing && (
-          <div className="tx-view">
-            <ViewField label="العميل" value={viewing.customer_name} />
-            <ViewField label="الجوال" value={viewing.customer_mobile || '—'} ltr />
-            <ViewField label="المعاملة" value={viewing.service_name} />
-            {billNumber(viewing) != null && (
-              <ViewField label="رقم الفاتورة" value={billNumber(viewing) || '—'} ltr />
-            )}
-            <ViewField
-              label="قيمة المعاملة"
-              value={viewing.transaction_value == null ? '—' : amountLabel(viewing.transaction_value)}
-            />
-            {canViewFinance && (
-              <ViewField
-                label="عمولة المكتب"
-                value={viewing.original_profit == null ? '—' : amountLabel(viewing.original_profit)}
-              />
-            )}
-            <ViewField label="الإجمالي" value={<RowTotal row={viewing} includeCommission={canViewFinance} />} />
-            <ViewField label="الحالة" value={<StatusBadge status={viewing.status} />} />
-            <ViewField label="التاريخ" value={formatDate(viewing.created_at)} />
-            <ViewField label="المدينة" value={viewing.city || '—'} />
-            <ViewField label="الجنسية" value={viewing.nationality || '—'} />
-            {viewing.note && billNumber(viewing) == null && (
-              <ViewField label="ملاحظة" value={viewing.note} />
-            )}
-            {viewing.status === 'cancelled' && (
-              <ViewField label="سبب الإلغاء" value={viewing.cancel_reason?.trim() || 'لا يوجد سبب'} />
-            )}
-            {(viewing.status === 'pending' || viewing.status === 'in_progress') && (
-              <PopupStatus
-                row={viewing}
-                onChanged={(status, reason) => {
-                  setViewing({ ...viewing, status, cancel_reason: reason ?? viewing.cancel_reason })
-                  onChanged?.()
-                }}
-              />
-            )}
-          </div>
-        )}
-      </Modal>
+        onChanged={onChanged}
+      />
 
       <Modal title="الخطوات" subtitle={stepsRow?.service_name} center open={Boolean(stepsRow)} onClose={() => setStepsRow(null)}>
         {stepsText ? (
@@ -231,6 +189,75 @@ export default function TransactionsTable({
         )}
       </Modal>
     </>
+  )
+}
+
+export function TransactionViewModal({
+  row,
+  onClose,
+  onChanged,
+}: {
+  row: TransactionDetail | null
+  onClose: () => void
+  onChanged?: () => void
+}) {
+  const { canViewFinance } = useCompany()
+  const { services } = useServicePrices()
+  const [current, setCurrent] = useState<TransactionDetail | null>(row)
+
+  useEffect(() => {
+    setCurrent(row)
+  }, [row])
+
+  function billNumber(item: TransactionDetail): string | null {
+    const isFawateer = services.some(
+      (service) => service.name === item.service_name && service.category === 'fawateer',
+    )
+    if (!isFawateer) return null
+    return item.note?.trim() ?? ''
+  }
+
+  return (
+    <Modal title={current?.service_name ?? 'عرض المعاملة'} center open={Boolean(current)} onClose={onClose}>
+      {current && (
+        <div className="tx-view">
+          <ViewField label="العميل" value={current.customer_name} />
+          <ViewField label="الجوال" value={current.customer_mobile || '—'} ltr />
+          <ViewField label="المعاملة" value={current.service_name} />
+          {billNumber(current) != null && (
+            <ViewField label="رقم الفاتورة" value={billNumber(current) || '—'} ltr />
+          )}
+          <ViewField
+            label="قيمة المعاملة"
+            value={current.transaction_value == null ? '—' : amountLabel(current.transaction_value)}
+          />
+          {canViewFinance && (
+            <ViewField
+              label="عمولة المكتب"
+              value={current.original_profit == null ? '—' : amountLabel(current.original_profit)}
+            />
+          )}
+          <ViewField label="الإجمالي" value={<RowTotal row={current} includeCommission={canViewFinance} />} />
+          <ViewField label="الحالة" value={<StatusBadge status={current.status} />} />
+          <ViewField label="التاريخ" value={formatDate(current.created_at)} />
+          <ViewField label="المدينة" value={current.city || '—'} />
+          <ViewField label="الجنسية" value={current.nationality || '—'} />
+          {current.note && billNumber(current) == null && <ViewField label="ملاحظة" value={current.note} />}
+          {current.status === 'cancelled' && (
+            <ViewField label="سبب الإلغاء" value={current.cancel_reason?.trim() || 'لا يوجد سبب'} />
+          )}
+          {(current.status === 'pending' || current.status === 'in_progress') && (
+            <PopupStatus
+              row={current}
+              onChanged={(status, reason) => {
+                setCurrent({ ...current, status, cancel_reason: reason ?? current.cancel_reason })
+                onChanged?.()
+              }}
+            />
+          )}
+        </div>
+      )}
+    </Modal>
   )
 }
 
@@ -351,7 +378,7 @@ function ViewField({
   )
 }
 
-function amountLabel(value: string | number | null | undefined): string {
+export function amountLabel(value: string | number | null | undefined): string {
   return money(value).replace(/ ر\.س$/, '').replace(/\.00$/, '')
 }
 
