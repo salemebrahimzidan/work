@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { TRANSACTION_DETAIL_COLUMNS, loadOfficeProfitMap } from '../lib/finance'
+import { TRANSACTION_DETAIL_COLUMNS, attachQuotedOfficeShare, loadOfficeProfitMap } from '../lib/finance'
 import { supabase } from '../lib/supabase'
 import { count, errorMessage, money } from '../lib/format'
 import { useAuth } from '../auth/AuthProvider'
@@ -165,17 +165,19 @@ export default function Transactions() {
     setFilteredTotal(total)
     setStatusCounts(nextCounts)
 
-    if (canViewFinance) {
-      try {
+    try {
+      if (canViewFinance) {
         const profits = await loadOfficeProfitMap()
         if (id !== requestId.current) return
         setRows(list.map((row) => ({ ...row, original_profit: profits[row.id] })))
-      } catch (profitError) {
-        setRows(list)
-        setError(errorMessage(profitError))
+      } else {
+        const withShare = await attachQuotedOfficeShare(list)
+        if (id !== requestId.current) return
+        setRows(withShare)
       }
-    } else {
+    } catch (profitError) {
       setRows(list)
+      setError(errorMessage(profitError))
     }
     setLoading(false)
   }, [debouncedSearch, status, fromDate, toDate, page, canViewFinance])
@@ -287,6 +289,8 @@ export default function Transactions() {
           rows={rows}
           loading={loading}
           officeLayout
+          showProfit
+          profitLabel="نسبة المكتب"
           onChanged={() => void load()}
         />
       </div>

@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import DateField from './DateField'
 import { SkeletonRows } from './LoadingSkeleton'
 import SelectField from './SelectField'
-import { loadOfficeProfitMap } from '../lib/finance'
+import { attachQuotedOfficeShare, loadOfficeProfitMap } from '../lib/finance'
+import { amountLabel, officeTotalLabel } from './TransactionsTable'
 import { supabase } from '../lib/supabase'
 import { downloadCsv, type CsvValue } from '../lib/csv'
 import { count, errorMessage, formatDate, money, transactionStatus } from '../lib/format'
@@ -188,15 +189,19 @@ export default function TransactionReport({ canViewFinance }: { canViewFinance: 
     }
 
     let list = (pageRes.data ?? []) as ReportRow[]
-    if (canViewFinance) {
-      try {
+    try {
+      if (canViewFinance) {
         const profits = await loadOfficeProfitMap()
         if (id !== requestId.current) return
         list = list.map((row) => ({ ...row, original_profit: profits[row.id] }))
-      } catch (profitError) {
+      } else {
+        const withShare = await attachQuotedOfficeShare(list)
         if (id !== requestId.current) return
-        setError(errorMessage(profitError))
+        list = withShare
       }
+    } catch (profitError) {
+      if (id !== requestId.current) return
+      setError(errorMessage(profitError))
     }
 
     if (!canViewFinance) {
@@ -245,8 +250,7 @@ export default function TransactionReport({ canViewFinance }: { canViewFinance: 
     setExportError('')
     try {
       const day = riyadhDay(new Date().toISOString()) || 'report'
-      const header = ['التاريخ', 'العميل', 'الجوال', 'الخدمة', 'قيمة المعاملة', 'الحالة']
-      if (canViewFinance) header.push('عمولة المكتب')
+      const header = ['التاريخ', 'العميل', 'الجوال', 'الخدمة', 'قيمة المعاملة', 'نسبة المكتب', 'الإجمالي', 'الحالة']
       const body = rows.map((row) => {
         const values: CsvValue[] = [
           formatDate(row.created_at),
@@ -254,9 +258,10 @@ export default function TransactionReport({ canViewFinance }: { canViewFinance: 
           row.customer_mobile,
           row.service_name,
           row.transaction_value ?? '',
+          row.original_profit ?? '',
+          officeTotalLabel(row) === '—' ? '' : officeTotalLabel(row),
           transactionStatus(row.status).label,
         ]
-        if (canViewFinance) values.push(row.original_profit ?? '')
         return values
       })
       downloadCsv(`reports-transactions-${day}.csv`, [header, ...body])
@@ -373,14 +378,15 @@ export default function TransactionReport({ canViewFinance }: { canViewFinance: 
               <th>العميل</th>
               <th>الجوال</th>
               <th>الخدمة</th>
-              <th>قيمة المعاملة</th>
+              <th className="num-left">قيمة المعاملة</th>
+              <th className="num-left">نسبة المكتب</th>
+              <th className="num-left">الإجمالي</th>
               <th>الحالة</th>
-              {canViewFinance && <th>عمولة المكتب</th>}
             </tr>
           </thead>
           <tbody>
             {loading && rows.length === 0 ? (
-              <SkeletonRows columns={canViewFinance ? 7 : 6} />
+              <SkeletonRows columns={8} />
             ) : rows.map((row) => {
               const state = transactionStatus(row.status)
               return (
@@ -398,16 +404,17 @@ export default function TransactionReport({ canViewFinance }: { canViewFinance: 
                     <Link to={`/transactions/${row.id}`}>{row.service_name}</Link>
                   </td>
                   <td className="num" data-label="قيمة المعاملة">
-                    {row.transaction_value == null ? '—' : money(row.transaction_value)}
+                    {row.transaction_value == null ? '—' : amountLabel(row.transaction_value)}
+                  </td>
+                  <td className="num strong" data-label="نسبة المكتب">
+                    {row.original_profit == null ? '—' : amountLabel(row.original_profit)}
+                  </td>
+                  <td className="num" data-label="الإجمالي">
+                    {officeTotalLabel(row) === '—' ? '—' : <span className="tx-total">{officeTotalLabel(row)}</span>}
                   </td>
                   <td data-label="الحالة">
                     <span className={state.badge}>{state.label}</span>
                   </td>
-                  {canViewFinance && (
-                    <td className="num strong" data-label="عمولة المكتب">
-                      {row.original_profit == null ? '—' : money(row.original_profit)}
-                    </td>
-                  )}
                 </tr>
               )
             })}

@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { Ban } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { useCompany } from '../auth/CompanyProvider'
-import { TRANSACTION_DETAIL_COLUMNS, loadOfficeProfitMap } from '../lib/finance'
+import { TRANSACTION_DETAIL_COLUMNS, attachQuotedOfficeShare, loadOfficeProfitMap } from '../lib/finance'
+import { amountLabel, officeTotalLabel } from '../components/TransactionsTable'
 import { useServicePrices } from '../lib/hooks'
-import { errorMessage, formatDate, money, transactionStatus } from '../lib/format'
+import { errorMessage, formatDate, transactionStatus } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import { DetailSkeleton } from '../components/LoadingSkeleton'
 import type { TransactionDetail } from '../lib/types'
@@ -34,10 +35,15 @@ export default function TransactionDetails() {
     if (queryError) setError(errorMessage(queryError))
     else {
       const detail = (data as TransactionDetail | null) ?? null
-      if (detail && canViewFinance) {
+      if (detail) {
         try {
-          const profits = await loadOfficeProfitMap()
-          detail.original_profit = profits[detail.id]
+          if (canViewFinance) {
+            const profits = await loadOfficeProfitMap()
+            detail.original_profit = profits[detail.id]
+          } else {
+            const [withShare] = await attachQuotedOfficeShare([detail])
+            detail.original_profit = withShare.original_profit
+          }
         } catch (profitError) {
           setError(errorMessage(profitError))
         }
@@ -95,11 +101,10 @@ export default function TransactionDetails() {
           {billNumber != null && <Item label="رقم الفاتورة" value={billNumber || '—'} ltr />}
           <Item
             label="قيمة المعاملة"
-            value={row.transaction_value == null ? '—' : money(row.transaction_value)}
+            value={row.transaction_value == null ? '—' : amountLabel(row.transaction_value)}
           />
-          {canViewFinance && row.original_profit != null && (
-            <Item label="عمولة المكتب" value={money(row.original_profit)} />
-          )}
+          <Item label="نسبة المكتب" value={row.original_profit == null ? '—' : amountLabel(row.original_profit)} />
+          <Item label="الإجمالي" value={officeTotalLabel(row)} />
           <Item label="التاريخ" value={formatDate(row.created_at)} />
           <Item label="المدينة" value={row.city || '—'} />
           <Item label="الجنسية" value={row.nationality || '—'} />

@@ -1267,6 +1267,7 @@ a {
 .tx-list td[data-label='قيمة المعاملة'],
 .tx-list td[data-label='عمولة المكتب'],
 .tx-list td[data-label='ربح المكتب'],
+.tx-list td[data-label='نسبة المكتب'],
 .tx-list td[data-label='الإجمالي'],
 .dashboard-recent th.num-left,
 .dashboard-recent td.num-left {
@@ -1632,8 +1633,14 @@ tbody tr.row-open:hover {
 
   .customers-page .table-sheet {
     flex: 1;
+    min-width: 0;
     min-height: 0;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .customers-page .table-sheet table {
+    min-width: 960px;
   }
 
   .services-page {
