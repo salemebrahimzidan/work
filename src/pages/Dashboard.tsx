@@ -126,9 +126,6 @@ export default function Dashboard() {
           <button type="button" className="btn btn-primary" onClick={() => setTransactionOpen(true)}>
             + إضافة معاملة
           </button>
-          <button type="button" className="btn" onClick={() => void load()} disabled={loading}>
-            تحديث
-          </button>
         </div>
       </div>
 
