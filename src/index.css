@@ -1643,6 +1643,25 @@ tbody tr.row-open:hover {
     min-width: 960px;
   }
 
+  /* Status lists (waiting / in progress / cancelled) reuse the customers sheet layout. */
+  .customers-page > .tx-sheet-slot {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin-top: 16px;
+  }
+
+  .customers-page .tx-list table {
+    min-width: 1080px;
+  }
+
+  /* One line per row (visible table and hidden measuring copy) so measured heights match and each page fills up. */
+  .customers-page table th,
+  .customers-page table td {
+    white-space: nowrap;
+  }
+
   .services-page {
     flex: 1;
     min-height: 0;
