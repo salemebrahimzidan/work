@@ -11,6 +11,8 @@ import TransactionForm from '../components/TransactionForm'
 import TransactionsTable from '../components/TransactionsTable'
 import SelectField from '../components/SelectField'
 import DateField from '../components/DateField'
+import { PagePager } from '../components/PagePager'
+import { useHeightPages } from '../lib/useHeightPages'
 
 const PAGE_SIZE = 25
 const STATUS_KEYS = ['pending', 'in_progress', 'completed', 'cancelled'] as const
@@ -59,7 +61,197 @@ function applyFilters(query: any, filters: ListFilters, includeStatus = true) {
   return next
 }
 
+/** Lists opened from the sidebar: paged by screen height like the customers page. */
+const SHEET_STATUSES: StatusKey[] = ['pending', 'in_progress', 'completed', 'cancelled']
+
 export default function Transactions() {
+  const [params] = useSearchParams()
+  const rawStatus = params.get('status') ?? ''
+  if (SHEET_STATUSES.includes(rawStatus as StatusKey)) {
+    return <StatusTransactions key={rawStatus} status={rawStatus as StatusKey} />
+  }
+  return <AllTransactions />
+}
+
+function StatusTransactions({ status }: { status: StatusKey }) {
+  const { isAdmin } = useAuth()
+  const { canViewFinance, loading: companyLoading } = useCompany()
+  const [, setParams] = useSearchParams()
+  const [rows, setRows] = useState<TransactionDetail[]>([])
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [addOpen, setAddOpen] = useState(false)
+  const requestId = useRef(0)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 250)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const load = useCallback(async () => {
+    const id = ++requestId.current
+    setLoading(true)
+    setError('')
+
+    if (fromDate && toDate && fromDate > toDate) {
+      setRows([])
+      setError('تاريخ البداية بعد تاريخ النهاية.')
+      setLoading(false)
+      return
+    }
+
+    const res = await applyFilters(
+      supabase.from('transaction_details').select(TRANSACTION_DETAIL_COLUMNS),
+      { search: debouncedSearch, status, from: fromDate, to: toDate },
+    ).order('created_at', { ascending: false })
+    if (id !== requestId.current) return
+
+    if (res.error) {
+      setError(errorMessage(res.error))
+      setLoading(false)
+      return
+    }
+
+    const list = (res.data ?? []) as TransactionDetail[]
+    try {
+      if (canViewFinance) {
+        const profits = await loadOfficeProfitMap()
+        if (id !== requestId.current) return
+        setRows(list.map((row) => ({ ...row, original_profit: profits[row.id] })))
+      } else {
+        const withShare = await attachQuotedOfficeShare(list)
+        if (id !== requestId.current) return
+        setRows(withShare)
+      }
+    } catch (profitError) {
+      setRows(list)
+      setError(errorMessage(profitError))
+    }
+    setLoading(false)
+  }, [debouncedSearch, status, fromDate, toDate, canViewFinance])
+
+  useEffect(() => {
+    if (companyLoading) return
+    void load()
+  }, [companyLoading, load])
+
+  const pages = useHeightPages(rows.length, !loading && rows.length > 0, `${isAdmin}-${canViewFinance}`)
+
+  useEffect(() => {
+    pages.setPage(0)
+  }, [debouncedSearch, fromDate, toDate])
+
+  function setStatus(next: string) {
+    setParams(next ? { status: next } : {}, { replace: true })
+  }
+
+  return (
+    <div className="customers-page">
+      <div className="page-head">
+        <div className="customers-heading">
+          <h1>{STATUS_LABELS[status]}</h1>
+          <p className="customers-count">
+            <span className="customers-count-num">{count(rows.length)}</span>
+            معاملة في النتائج
+          </p>
+        </div>
+        <button type="button" className="btn btn-primary" onClick={() => setAddOpen(true)}>
+          إضافة معاملة
+        </button>
+      </div>
+
+      <div className="card">
+        <div className="filters">
+          <div className="field">
+            <label htmlFor="tx-search">بحث (العميل أو المعاملة)</label>
+            <input
+              id="tx-search"
+              value={search}
+              placeholder="اكتب للبحث…"
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
+
+          <div className="field">
+            <label htmlFor="tx-status">الحالة</label>
+            <SelectField
+              id="tx-status"
+              value={status}
+              onChange={setStatus}
+              options={[
+                { value: '', label: 'كل الحالات' },
+                ...STATUS_KEYS.map((item) => ({ value: item, label: STATUS_LABELS[item] })),
+              ]}
+            />
+          </div>
+
+          <div className="field">
+            <label htmlFor="tx-from">من تاريخ</label>
+            <DateField id="tx-from" value={fromDate} onChange={setFromDate} />
+          </div>
+
+          <div className="field">
+            <label htmlFor="tx-to">إلى تاريخ</label>
+            <DateField id="tx-to" value={toDate} onChange={setToDate} />
+          </div>
+
+          <div className="field">
+            <label>&nbsp;</label>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => {
+                setSearch('')
+                setFromDate('')
+                setToDate('')
+              }}
+            >
+              مسح التصفية
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {error && <div className="alert alert-error" style={{ marginTop: 16 }}>{error}</div>}
+
+      <div className="tx-sheet-slot">
+        <TransactionsTable
+          rows={rows}
+          loading={loading}
+          officeLayout
+          showProfit
+          profitLabel="نسبة المكتب"
+          onChanged={() => void load()}
+          sheet={pages}
+        />
+      </div>
+      {pages.pageCount > 1 && (
+        <PagePager
+          className="table-pager"
+          page={pages.currentPage}
+          pageCount={pages.pageCount}
+          onPage={pages.setPage}
+        />
+      )}
+
+      <Modal title="إضافة معاملة" open={addOpen} onClose={() => setAddOpen(false)}>
+        <TransactionForm
+          onCancel={() => setAddOpen(false)}
+          onSaved={() => {
+            setAddOpen(false)
+            void load()
+          }}
+        />
+      </Modal>
+    </div>
+  )
+}
+
+function AllTransactions() {
   const { isAdmin } = useAuth()
   const { canViewFinance, loading: companyLoading } = useCompany()
   const [rows, setRows] = useState<TransactionDetail[]>([])

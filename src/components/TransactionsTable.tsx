@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode, type RefObject } from 'react'
 import { Ban, Eye, ListChecks, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
@@ -21,6 +21,13 @@ interface Props {
   profitLabel?: string
   emptyLabel?: string
   onChanged?: () => void
+  /** Height-based paging (same as the customers page): only rows[start, end) are shown. */
+  sheet?: {
+    sheetRef: RefObject<HTMLDivElement | null>
+    measureRef: RefObject<HTMLTableSectionElement | null>
+    start: number
+    end: number
+  }
 }
 
 export default function TransactionsTable({
@@ -32,6 +39,7 @@ export default function TransactionsTable({
   profitLabel = 'نسبة المكتب',
   emptyLabel = 'لا توجد معاملات',
   onChanged,
+  sheet,
 }: Props) {
   const { isAdmin } = useAuth()
   const { canViewFinance } = useCompany()
@@ -51,30 +59,10 @@ export default function TransactionsTable({
     return row.note?.trim() ?? ''
   }
 
-  return (
-    <>
-      <div className={officeLayout ? 'table-wrap tx-list' : 'table-wrap'}>
-        <table>
-          <thead>
-            <tr>
-              {showCustomer && <th>العميل</th>}
-              <th>المعاملة</th>
-              <th>رقم الفاتورة</th>
-              <th className="num-left">قيمة المعاملة</th>
-              {showOfficeProfit && <th className="num-left">{profitLabel}</th>}
-              <th className="num-left">الإجمالي</th>
-              <th>الحالة</th>
-              <th>ملاحظة</th>
-              <th>التاريخ</th>
-              <th>إجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && rows.length === 0 ? (
-              <SkeletonRows
-                columns={(showCustomer ? 1 : 0) + (showOfficeProfit ? 1 : 0) + 8}
-              />
-            ) : rows.map((row) => (
+  const shownRows = sheet ? rows.slice(sheet.start, sheet.end) : rows
+  const wrapClass = ['table-wrap', officeLayout && 'tx-list', sheet && 'table-sheet'].filter(Boolean).join(' ')
+
+  const renderRow = (row: TransactionDetail) => (
               <tr key={row.id}>
                 {showCustomer && (
                   <td data-label="العميل">
@@ -153,11 +141,44 @@ export default function TransactionsTable({
                   </div>
                 </td>
               </tr>
-            ))}
+  )
+
+  return (
+    <>
+      <div className={wrapClass} ref={sheet?.sheetRef}>
+        <table>
+          <thead>
+            <tr>
+              {showCustomer && <th>العميل</th>}
+              <th>المعاملة</th>
+              <th>رقم الفاتورة</th>
+              <th className="num-left">قيمة المعاملة</th>
+              {showOfficeProfit && <th className="num-left">{profitLabel}</th>}
+              <th className="num-left">الإجمالي</th>
+              <th>الحالة</th>
+              <th>ملاحظة</th>
+              <th>التاريخ</th>
+              <th>إجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && rows.length === 0 ? (
+              <SkeletonRows
+                columns={(showCustomer ? 1 : 0) + (showOfficeProfit ? 1 : 0) + 8}
+              />
+            ) : shownRows.map(renderRow)}
           </tbody>
         </table>
         {!loading && rows.length === 0 && <div className="empty">{emptyLabel}</div>}
       </div>
+
+      {sheet && (
+        <div className={officeLayout ? 'tx-list' : undefined}>
+          <table className="price-measure" aria-hidden="true" inert>
+            <tbody ref={sheet.measureRef}>{rows.map(renderRow)}</tbody>
+          </table>
+        </div>
+      )}
 
       <TransactionViewModal
         row={viewing}

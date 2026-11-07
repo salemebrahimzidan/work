@@ -24,6 +24,9 @@ export function useHeightPages(itemCount: number, active: boolean, layoutKey = '
   const currentPage = Math.min(page, Math.max(0, pageCount - 1))
   const start = breaks[currentPage] ?? 0
   const end = breaks[currentPage + 1] ?? itemCount
+  // While the pager is on screen the sheet has already shrunk to make room for it.
+  const pagerShown = useRef(false)
+  pagerShown.current = pageCount > 1
 
   useLayoutEffect(() => {
     if (!active || itemCount === 0) {
@@ -46,12 +49,16 @@ export function useHeightPages(itemCount: number, active: boolean, layoutKey = '
         return
       }
       const measureTable = body.closest('table')
-      if (measureTable instanceof HTMLTableElement) measureTable.style.width = `${box.clientWidth}px`
+      // Match the visible table's real width (it can be wider than the box when it scrolls sideways).
+      const shownTable = box.querySelector('table')
+      const width = Math.max(box.clientWidth, shownTable?.offsetWidth ?? 0)
+      if (measureTable instanceof HTMLTableElement) measureTable.style.width = `${width}px`
       const head = box.querySelector('thead')
       const available = box.clientHeight - (head?.getBoundingClientRect().height ?? 0)
       const heights = [...body.querySelectorAll('tr')].map((row) => row.getBoundingClientRect().height)
       let starts = pageStarts(heights, available)
-      if (starts.length > 1) starts = pageStarts(heights, available - 52)
+      // Reserve room for the pager only before it appears; afterwards the sheet height already excludes it.
+      if (starts.length > 1 && !pagerShown.current) starts = pageStarts(heights, available - 52)
       setBreaks((current) =>
         current.length === starts.length && current.every((value, index) => value === starts[index]) ? current : starts,
       )
@@ -61,6 +68,7 @@ export function useHeightPages(itemCount: number, active: boolean, layoutKey = '
     layout()
     const observer = new ResizeObserver(layout)
     observer.observe(sheet)
+    observer.observe(measure)
     window.addEventListener('resize', layout)
     return () => {
       observer.disconnect()
