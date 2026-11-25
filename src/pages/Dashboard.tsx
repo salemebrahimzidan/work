@@ -12,6 +12,7 @@ import { TRANSACTION_DETAIL_COLUMNS, attachQuotedOfficeShare, loadOfficeProfitMa
 import { supabase } from '../lib/supabase'
 import { count, errorMessage, formatDate, transactionStatus } from '../lib/format'
 import type { DashboardStats, TransactionDetail } from '../lib/types'
+import { useOnTransactionsChanged } from '../lib/dataEvents'
 
 const RECENT_LIMIT = 5
 
@@ -126,6 +127,9 @@ export default function Dashboard() {
     if (companyLoading) return
     void load()
   }, [companyLoading, load])
+
+  // Refresh when a transaction is added anywhere (e.g. from the assistant).
+  useOnTransactionsChanged(load)
 
   // Same profit/share columns as the recent table, for rows opened from the status panel.
   const enrichRows = useCallback(

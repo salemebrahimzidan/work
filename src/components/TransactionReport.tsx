@@ -8,6 +8,7 @@ import { amountLabel, officeTotalLabel } from './TransactionsTable'
 import { supabase } from '../lib/supabase'
 import { downloadCsv, type CsvValue } from '../lib/csv'
 import { count, errorMessage, formatDate, money, transactionStatus } from '../lib/format'
+import { useOnTransactionsChanged } from '../lib/dataEvents'
 
 const PAGE_SIZE = 25
 const REPORT_COLUMNS =
@@ -233,6 +234,9 @@ export default function TransactionReport({ canViewFinance }: { canViewFinance: 
   useEffect(() => {
     void load()
   }, [load])
+
+  // Refresh when a transaction is added anywhere (e.g. from the assistant).
+  useOnTransactionsChanged(load)
 
   const pageCount = Math.max(1, Math.ceil(filteredTotal / PAGE_SIZE))
   const pageValue = rows.reduce((sum, row) => sum + (Number(row.transaction_value) || 0), 0)
