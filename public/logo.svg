@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="الايمان روح الذهبية">
+  <defs>
+    <linearGradient id="tile" x1="8" y1="0" x2="52" y2="64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#178578"/>
+      <stop offset="1" stop-color="#0b3d39"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="22" y1="14" x2="34" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff4d6"/>
+      <stop offset="0.42" stop-color="#f0d08a"/>
+      <stop offset="1" stop-color="#c4963c"/>
+    </linearGradient>
+    <linearGradient id="gem" x1="44" y1="6" x2="56" y2="20" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fffdf8"/>
+      <stop offset="0.55" stop-color="#ffe7ad"/>
+      <stop offset="1" stop-color="#e4bc68"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="url(#tile)"/>
+  <rect x="3.2" y="3.2" width="57.6" height="57.6" rx="15.1" fill="none" stroke="#f6e7c8" stroke-opacity="0.4" stroke-width="1.05"/>
+  <g transform="translate(-2.2 0.4)">
+    <rect x="23.2" y="20.8" width="9" height="31.2" rx="3.5" fill="url(#gold)"/>
+    <rect x="27.2" y="19.4" width="16.8" height="7.8" rx="3.6" fill="url(#gold)" transform="rotate(-30 31.6 23.3)"/>
+    <path fill="url(#gem)" d="M47.6 10.4 51.8 15.1 47.6 19.8 43.4 15.1Z"/>
+  </g>
+</svg>

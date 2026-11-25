@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode, type RefObject } from 'react'
-import { Ban, Eye, ListChecks, Trash2 } from 'lucide-react'
+import { Ban, Eye, Inbox, ListChecks, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { useCompany } from '../auth/CompanyProvider'
@@ -20,6 +20,7 @@ interface Props {
   showProfit?: boolean
   profitLabel?: string
   emptyLabel?: string
+  emptyHint?: string
   onChanged?: () => void
   /** Height-based paging (same as the customers page): only rows[start, end) are shown. */
   sheet?: {
@@ -38,6 +39,7 @@ export default function TransactionsTable({
   showProfit = false,
   profitLabel = 'نسبة المكتب',
   emptyLabel = 'لا توجد معاملات',
+  emptyHint,
   onChanged,
   sheet,
 }: Props) {
@@ -143,33 +145,44 @@ export default function TransactionsTable({
               </tr>
   )
 
+  const isEmpty = !loading && rows.length === 0
+
   return (
     <>
       <div className={wrapClass} ref={sheet?.sheetRef}>
-        <table>
-          <thead>
-            <tr>
-              {showCustomer && <th>العميل</th>}
-              <th>المعاملة</th>
-              <th>رقم الفاتورة</th>
-              <th className="num-left">قيمة المعاملة</th>
-              {showOfficeProfit && <th className="num-left">{profitLabel}</th>}
-              <th className="num-left">الإجمالي</th>
-              <th>الحالة</th>
-              <th>ملاحظة</th>
-              <th>التاريخ</th>
-              <th>إجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && rows.length === 0 ? (
-              <SkeletonRows
-                columns={(showCustomer ? 1 : 0) + (showOfficeProfit ? 1 : 0) + 8}
-              />
-            ) : shownRows.map(renderRow)}
-          </tbody>
-        </table>
-        {!loading && rows.length === 0 && <div className="empty">{emptyLabel}</div>}
+        {isEmpty ? (
+          <div className="sheet-empty">
+            <span className="sheet-empty-mark" aria-hidden="true">
+              <Inbox size={28} strokeWidth={1.75} />
+            </span>
+            <strong>{emptyLabel}</strong>
+            {emptyHint ? <p>{emptyHint}</p> : null}
+          </div>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                {showCustomer && <th>العميل</th>}
+                <th>المعاملة</th>
+                <th>رقم الفاتورة</th>
+                <th className="num-left">قيمة المعاملة</th>
+                {showOfficeProfit && <th className="num-left">{profitLabel}</th>}
+                <th className="num-left">الإجمالي</th>
+                <th>الحالة</th>
+                <th>ملاحظة</th>
+                <th>التاريخ</th>
+                <th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && rows.length === 0 ? (
+                <SkeletonRows
+                  columns={(showCustomer ? 1 : 0) + (showOfficeProfit ? 1 : 0) + 8}
+                />
+              ) : shownRows.map(renderRow)}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {sheet && (

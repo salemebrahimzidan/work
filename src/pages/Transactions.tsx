@@ -13,6 +13,9 @@ import SelectField from '../components/SelectField'
 import DateField from '../components/DateField'
 import { PagePager } from '../components/PagePager'
 import { useHeightPages } from '../lib/useHeightPages'
+import PrintButton from '../components/PrintButton'
+import { printReport, type PrintColumn } from '../lib/print'
+import { formatDate, transactionStatus } from '../lib/format'
 
 const PAGE_SIZE = 25
 const STATUS_KEYS = ['pending', 'in_progress', 'completed', 'cancelled'] as const
@@ -59,6 +62,30 @@ function applyFilters(query: any, filters: ListFilters, includeStatus = true) {
   if (filters.from) next = next.gte('created_at', riyadhStart(filters.from))
   if (filters.to) next = next.lte('created_at', riyadhEnd(filters.to))
   return next
+}
+
+const PRINT_COLUMNS: PrintColumn<TransactionDetail>[] = [
+  // Everything except money: value, office share and total stay screen-only.
+  { label: 'العميل', value: (row) => row.customer_name },
+  { label: 'رقم العميل', numeric: true, value: (row) => row.customer_mobile },
+  { label: 'المعاملة', value: (row) => row.service_name },
+  { label: 'حالة المعاملة', value: (row) => transactionStatus(row.status).label },
+  { label: 'ملاحظة / رقم الفاتورة', value: (row) => row.note?.trim() },
+  { label: 'التاريخ', numeric: true, value: (row) => formatDate(row.created_at) },
+]
+
+/** Prints every row of the current (filtered) list, with the filters written under the title. */
+function printTransactions(title: string, rows: TransactionDetail[], filters: ListFilters) {
+  const details: string[] = []
+  if (filters.status && !title.includes(STATUS_LABELS[filters.status as StatusKey])) {
+    details.push(`الحالة: ${STATUS_LABELS[filters.status as StatusKey]}`)
+  }
+  if (filters.search.trim()) details.push(`بحث: ${filters.search.trim()}`)
+  if (filters.from || filters.to) {
+    details.push(`الفترة: ${filters.from || '...'} إلى ${filters.to || '...'}`)
+  }
+  if (!details.length) details.push('كل الفترات')
+  printReport({ title, details, columns: PRINT_COLUMNS, rows })
 }
 
 /** Lists opened from the sidebar: paged by screen height like the customers page. */
@@ -159,9 +186,22 @@ function StatusTransactions({ status }: { status: StatusKey }) {
             معاملة في النتائج
           </p>
         </div>
-        <button type="button" className="btn btn-primary" onClick={() => setAddOpen(true)}>
-          إضافة معاملة
-        </button>
+        <div className="page-actions">
+          <PrintButton
+            disabled={loading}
+            onPrint={() =>
+              printTransactions(STATUS_LABELS[status], rows, {
+                search: debouncedSearch,
+                status,
+                from: fromDate,
+                to: toDate,
+              })
+            }
+          />
+          <button type="button" className="btn btn-primary" onClick={() => setAddOpen(true)}>
+            إضافة معاملة
+          </button>
+        </div>
       </div>
 
       <div className="card">
@@ -225,6 +265,7 @@ function StatusTransactions({ status }: { status: StatusKey }) {
           officeLayout
           showProfit
           profitLabel="نسبة المكتب"
+          emptyHint="أضف معاملة جديدة، أو عدّل البحث والتاريخ إذا كنت تبحث عن معاملة موجودة."
           onChanged={() => void load()}
           sheet={pages}
         />
@@ -379,6 +420,31 @@ function AllTransactions() {
     void load()
   }, [companyLoading, load])
 
+  // The list is fetched one page at a time, so printing loads the whole filtered list first.
+  async function printAll() {
+    const filters: ListFilters = { search: debouncedSearch, status, from: fromDate, to: toDate }
+    const res = await applyFilters(
+      supabase.from('transaction_details').select(TRANSACTION_DETAIL_COLUMNS),
+      filters,
+    ).order('created_at', { ascending: false })
+    if (res.error) {
+      setError(errorMessage(res.error))
+      return
+    }
+    let list = (res.data ?? []) as TransactionDetail[]
+    try {
+      if (canViewFinance) {
+        const profits = await loadOfficeProfitMap()
+        list = list.map((row) => ({ ...row, original_profit: profits[row.id] }))
+      } else {
+        list = await attachQuotedOfficeShare(list)
+      }
+    } catch (profitError) {
+      setError(errorMessage(profitError))
+    }
+    printTransactions(status ? STATUS_LABELS[status as StatusKey] : 'المعاملات', list, filters)
+  }
+
   const pageCount = Math.max(1, Math.ceil(filteredTotal / PAGE_SIZE))
   const pageValue = rows.reduce((sum, row) => sum + (Number(row.transaction_value) || 0), 0)
 
@@ -397,9 +463,12 @@ function AllTransactions() {
           <h1>المعاملات</h1>
           <p className="page-sub">{count(filteredTotal)} معاملة في النتائج</p>
         </div>
-        <button type="button" className="btn btn-primary" onClick={() => setAddOpen(true)}>
-          إضافة معاملة
-        </button>
+        <div className="page-actions">
+          <PrintButton disabled={loading || filteredTotal === 0} onPrint={printAll} />
+          <button type="button" className="btn btn-primary" onClick={() => setAddOpen(true)}>
+            إضافة معاملة
+          </button>
+        </div>
       </div>
 
       <div className="tx-summary" aria-label="ملخص النتائج">
@@ -483,6 +552,7 @@ function AllTransactions() {
           officeLayout
           showProfit
           profitLabel="نسبة المكتب"
+          emptyHint="أضف معاملة جديدة، أو عدّل البحث والتاريخ إذا كنت تبحث عن معاملة موجودة."
           onChanged={() => void load()}
         />
       </div>

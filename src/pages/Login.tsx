@@ -46,6 +46,7 @@ export default function Login() {
       <main className="login-main">
         <form className="login-card" onSubmit={handleSubmit}>
           <div className="login-card-brand">
+            <img className="login-logo" src="/logo.svg" alt="" />
             <p className="login-card-name">
               الايمان <span>روح الذهبية</span>
             </p>
@@ -127,6 +128,7 @@ export default function Login() {
 
       <aside className="login-hero">
         <div className="login-hero-body">
+          <img className="login-logo" src="/logo.svg" alt="" />
           <h2>
             الايمان <span>روح الذهبية</span>
           </h2>

@@ -8,14 +8,18 @@ import { useAuth } from '../auth/AuthProvider'
 import type { CustomerSummary } from '../lib/types'
 import { SkeletonRows } from '../components/LoadingSkeleton'
 import { PagePager } from '../components/PagePager'
+import SelectField from '../components/SelectField'
 import Modal from '../components/Modal'
 import CustomerForm from '../components/CustomerForm'
+import PrintButton from '../components/PrintButton'
+import { printReport, type PrintColumn } from '../lib/print'
 
 export default function Customers() {
   const { isAdmin } = useAuth()
   const [rows, setRows] = useState<CustomerSummary[]>([])
   const [search, setSearch] = useState('')
   const [iqama, setIqama] = useState('')
+  const [activity, setActivity] = useState<Activity>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [addOpen, setAddOpen] = useState(false)
@@ -73,12 +77,16 @@ export default function Customers() {
     return () => clearTimeout(timer)
   }, [load])
 
-  const pages = useHeightPages(rows.length, !loading && rows.length > 0, String(isAdmin))
-  const visibleRows = rows.slice(pages.start, pages.end)
+  // "Has / no transactions" filter runs on the loaded list; counts feed the dropdown labels.
+  const withTx = rows.filter((row) => Number(row.transactions_count) > 0).length
+  const shown = activity === '' ? rows : rows.filter((row) => (Number(row.transactions_count) > 0) === (activity === 'with'))
+
+  const pages = useHeightPages(shown.length, !loading && shown.length > 0, `${isAdmin}-${activity}`)
+  const visibleRows = shown.slice(pages.start, pages.end)
 
   useEffect(() => {
     pages.setPage(0)
-  }, [search, iqama])
+  }, [search, iqama, activity])
 
   return (
     <div className="customers-page">
@@ -86,13 +94,16 @@ export default function Customers() {
         <div className="customers-heading">
           <h1>العملاء</h1>
           <p className="customers-count">
-            <span className="customers-count-num">{count(rows.length)}</span>
+            <span className="customers-count-num">{count(shown.length)}</span>
             عميل في النتائج
           </p>
         </div>
-        <button type="button" className="btn btn-primary" onClick={() => setAddOpen(true)}>
-          إضافة عميل
-        </button>
+        <div className="page-actions">
+          <PrintButton disabled={loading} onPrint={() => printCustomers(shown, search, iqama, activity)} />
+          <button type="button" className="btn btn-primary" onClick={() => setAddOpen(true)}>
+            إضافة عميل
+          </button>
+        </div>
       </div>
 
       <div className="card">
@@ -120,6 +131,20 @@ export default function Customers() {
           </div>
 
           <div className="field">
+            <label htmlFor="filter-activity">المعاملات</label>
+            <SelectField
+              id="filter-activity"
+              value={activity}
+              onChange={(value) => setActivity(value as Activity)}
+              options={[
+                { value: '', label: `كل العملاء (${count(rows.length)})` },
+                { value: 'with', label: `${ACTIVITY_LABELS.with} (${count(withTx)})` },
+                { value: 'without', label: `${ACTIVITY_LABELS.without} (${count(rows.length - withTx)})` },
+              ]}
+            />
+          </div>
+
+          <div className="field">
             <label>&nbsp;</label>
             <button
               type="button"
@@ -127,6 +152,7 @@ export default function Customers() {
               onClick={() => {
                 setSearch('')
                 setIqama('')
+                setActivity('')
               }}
             >
               مسح التصفية
@@ -141,7 +167,7 @@ export default function Customers() {
         <table>
           <CustomerHead isAdmin={isAdmin} />
           <tbody>
-            {loading && rows.length === 0 ? (
+            {loading && shown.length === 0 ? (
               <SkeletonRows columns={isAdmin ? 7 : 8} />
             ) : (
               visibleRows.map((row) => (
@@ -150,7 +176,7 @@ export default function Customers() {
             )}
           </tbody>
         </table>
-        {!loading && rows.length === 0 && <div className="empty">لا توجد نتائج</div>}
+        {!loading && shown.length === 0 && <div className="empty">لا توجد نتائج</div>}
       </div>
       {pages.pageCount > 1 && (
         <PagePager
@@ -162,7 +188,7 @@ export default function Customers() {
       )}
       <table className="price-measure" aria-hidden="true" inert>
         <tbody ref={pages.measureRef}>
-          {rows.map((row) => (
+          {shown.map((row) => (
             <CustomerRow key={row.id} row={row} isAdmin={isAdmin} openCount={openCounts[row.id] ?? 0} />
           ))}
         </tbody>
@@ -179,6 +205,32 @@ export default function Customers() {
       </Modal>
     </div>
   )
+}
+
+/** Prints every customer in the current (filtered) list. Transaction value is left off paper on purpose. */
+type Activity = '' | 'with' | 'without'
+
+const ACTIVITY_LABELS: Record<'with' | 'without', string> = {
+  with: 'لديهم معاملات',
+  without: 'بدون معاملات',
+}
+
+function printCustomers(rows: CustomerSummary[], search: string, iqama: string, activity: Activity) {
+  const columns: PrintColumn<CustomerSummary>[] = [
+    { label: 'الاسم', value: (row) => row.full_name },
+    { label: 'المهنة', value: (row) => row.profession?.trim() },
+    { label: 'الجوال', numeric: true, value: (row) => row.mobile },
+    { label: 'رقم الإقامة', numeric: true, value: (row) => row.national_id },
+    { label: 'المدينة', value: (row) => row.city },
+    { label: 'عدد المعاملات', numeric: true, value: (row) => count(row.transactions_count) },
+    { label: 'تاريخ الإضافة', numeric: true, value: (row) => formatDate(row.created_at) },
+  ]
+  const details: string[] = []
+  if (search.trim()) details.push(`بحث: ${search.trim()}`)
+  if (iqama.trim()) details.push(`رقم الإقامة: ${iqama.trim()}`)
+  if (activity) details.push(ACTIVITY_LABELS[activity])
+  if (!details.length) details.push('كل العملاء')
+  printReport({ title: 'العملاء', details, columns, rows })
 }
 
 function CustomerHead({ isAdmin }: { isAdmin: boolean }) {
