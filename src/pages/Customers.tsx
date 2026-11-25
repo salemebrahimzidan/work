@@ -12,6 +12,7 @@ import SelectField from '../components/SelectField'
 import Modal from '../components/Modal'
 import CustomerForm from '../components/CustomerForm'
 import PrintButton from '../components/PrintButton'
+import CopyText from '../components/CopyText'
 import { printReport, type PrintColumn } from '../lib/print'
 
 export default function Customers() {
@@ -273,10 +274,10 @@ function CustomerRow({
       </td>
       <td>{row.profession?.trim() || '—'}</td>
       <td className="num" dir="ltr">
-        {row.mobile || '—'}
+        {row.mobile ? <CopyText value={row.mobile} label="نسخ الجوال" /> : '—'}
       </td>
       <td className="num" dir="ltr">
-        {row.national_id || '—'}
+        {row.national_id ? <CopyText value={row.national_id} label="نسخ رقم الإقامة" /> : '—'}
       </td>
       <td>{row.city || '—'}</td>
       <td className="num">{count(row.transactions_count)}</td>
