@@ -18,6 +18,7 @@ import {
   type ServicePrice,
 } from '../lib/types'
 import Modal from './Modal'
+import { notifyTransactionsChanged } from '../lib/dataEvents'
 import SelectField, { ComboField } from './SelectField'
 
 function amountField(value: string | number | null | undefined): string {
@@ -314,6 +315,8 @@ export default function TransactionForm({ fixedCustomerId, initialService, onSav
       setError(errorMessage(saveError))
       return
     }
+    // Let every open page (dashboard, lists, customers…) reload its data.
+    notifyTransactionsChanged()
     onSaved()
   }
 

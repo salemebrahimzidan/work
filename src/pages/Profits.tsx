@@ -6,6 +6,7 @@ import { useCustomerOptions, useFilterValues } from '../lib/hooks'
 import type { ProfitReport, TransactionDetail } from '../lib/types'
 import TransactionsTable from '../components/TransactionsTable'
 import SelectField from '../components/SelectField'
+import { useOnTransactionsChanged } from '../lib/dataEvents'
 
 const RIYADH_TZ = 'Asia/Riyadh'
 
@@ -103,6 +104,9 @@ export default function Profits() {
   useEffect(() => {
     void load()
   }, [load])
+
+  // Refresh when a transaction is added anywhere (e.g. from the assistant).
+  useOnTransactionsChanged(load)
 
   return (
     <>

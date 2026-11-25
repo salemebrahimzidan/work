@@ -14,6 +14,7 @@ import CustomerForm from '../components/CustomerForm'
 import PrintButton from '../components/PrintButton'
 import CopyText from '../components/CopyText'
 import { printReport, type PrintColumn } from '../lib/print'
+import { useOnTransactionsChanged } from '../lib/dataEvents'
 
 export default function Customers() {
   const { isAdmin } = useAuth()
@@ -77,6 +78,9 @@ export default function Customers() {
     const timer = setTimeout(() => void load(), 250)
     return () => clearTimeout(timer)
   }, [load])
+
+  // Refresh when a transaction is added anywhere (e.g. from the assistant).
+  useOnTransactionsChanged(load)
 
   // "Has / no transactions" filter runs on the loaded list; counts feed the dropdown labels.
   const withTx = rows.filter((row) => Number(row.transactions_count) > 0).length

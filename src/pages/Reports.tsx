@@ -6,6 +6,7 @@ import TransactionReport from '../components/TransactionReport'
 import { supabase } from '../lib/supabase'
 import { downloadCsv, type CsvValue } from '../lib/csv'
 import { count, transactionStatus } from '../lib/format'
+import { useOnTransactionsChanged } from '../lib/dataEvents'
 
 const CUSTOMER_COLUMNS = 'id, city, nationality, created_at'
 const TRANSACTION_COLUMNS = 'customer_id, service_name, status, created_at'
@@ -122,6 +123,9 @@ export default function Reports() {
     if (companyLoading) return
     void loadCustomers()
   }, [companyLoading, loadCustomers])
+
+  // Refresh when a transaction is added anywhere (e.g. from the assistant).
+  useOnTransactionsChanged(loadCustomers)
 
   const exportDisabled = companyLoading || !company || !canViewReports || customerLoading || Boolean(customerError)
 

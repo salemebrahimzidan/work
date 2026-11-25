@@ -11,6 +11,7 @@ import Modal from '../components/Modal'
 import CustomerForm from '../components/CustomerForm'
 import TransactionForm from '../components/TransactionForm'
 import TransactionsTable from '../components/TransactionsTable'
+import { useOnTransactionsChanged } from '../lib/dataEvents'
 
 const CUSTOMER_COLUMNS =
   'id, full_name, mobile, profession, national_id, nationality, city, district, notes, created_at'
@@ -92,6 +93,9 @@ export default function CustomerDetails() {
     if (companyLoading) return
     void load()
   }, [companyLoading, load])
+
+  // Refresh when a transaction is added anywhere (e.g. from the assistant).
+  useOnTransactionsChanged(load)
 
   const statusCounts = useMemo(() => {
     const next: Record<StatusKey, number> = {

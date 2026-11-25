@@ -16,6 +16,7 @@ import { useHeightPages } from '../lib/useHeightPages'
 import PrintButton from '../components/PrintButton'
 import { printReport, type PrintColumn } from '../lib/print'
 import { formatDate, transactionStatus } from '../lib/format'
+import { useOnTransactionsChanged } from '../lib/dataEvents'
 
 const PAGE_SIZE = 25
 const STATUS_KEYS = ['pending', 'in_progress', 'completed', 'cancelled'] as const
@@ -165,6 +166,9 @@ function StatusTransactions({ status }: { status: StatusKey }) {
     if (companyLoading) return
     void load()
   }, [companyLoading, load])
+
+  // Refresh when a transaction is added anywhere (e.g. from the assistant).
+  useOnTransactionsChanged(load)
 
   const pages = useHeightPages(rows.length, !loading && rows.length > 0, `${isAdmin}-${canViewFinance}`)
 
@@ -419,6 +423,9 @@ function AllTransactions() {
     if (companyLoading) return
     void load()
   }, [companyLoading, load])
+
+  // Refresh when a transaction is added anywhere (e.g. from the assistant).
+  useOnTransactionsChanged(load)
 
   // The list is fetched one page at a time, so printing loads the whole filtered list first.
   async function printAll() {
