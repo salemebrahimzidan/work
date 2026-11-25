@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   BadgeDollarSign,
   Ban,
@@ -20,6 +20,7 @@ import {
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { useCompany } from '../auth/CompanyProvider'
+import PageSearch, { type SearchPage } from './PageSearch'
 import {
   billerCategories,
   billerCategoryLabel,
@@ -77,6 +78,29 @@ export default function Layout() {
     setNavOpen(false)
   }, [pathname, search])
 
+  // Same pages, and same visibility rules, as the sidebar below.
+  const searchPages = useMemo<SearchPage[]>(() => {
+    const pages: SearchPage[] = links
+      .filter((link) => !link.admin || isAdmin)
+      .map((link) => ({ to: link.to, label: link.label, icon: link.icon }))
+    if (isAdmin) {
+      for (const item of paymentLinks) {
+        if (item.children) {
+          for (const child of item.children) pages.push({ to: child.to, label: child.label, group: item.label, icon: Wallet })
+        } else {
+          pages.push({ to: item.to, label: item.label, group: 'سداد', icon: Wallet })
+        }
+      }
+      for (const item of serviceLinks) pages.push({ to: item.to, label: item.label, group: 'خدمات', icon: Briefcase })
+      for (const item of ticketLinks) {
+        pages.push({ to: item.to, label: item.label, icon: standaloneIcons[item.category] ?? Briefcase })
+      }
+    }
+    if (canViewReports) pages.push({ to: '/reports', label: 'التقارير', icon: ChartColumn })
+    if (canViewFinance) pages.push({ to: '/profits', label: 'الأرباح', icon: BadgeDollarSign })
+    return pages
+  }, [isAdmin, canViewReports, canViewFinance])
+
   function linkClass(active: boolean) {
     return active ? 'nav-link active' : 'nav-link'
   }
@@ -96,7 +120,7 @@ export default function Layout() {
       <aside className={navOpen ? 'sidebar is-open' : 'sidebar'}>
         <div className="sidebar-top">
           <div className="brand">
-            <span className="brand-mark">ا</span>
+            <img className="brand-mark" src="/logo.svg" alt="" />
             <span className="brand-name">الايمان روح الذهبية</span>
           </div>
           <button
@@ -187,6 +211,7 @@ export default function Layout() {
       </aside>
 
       <main className="main">
+        <PageSearch pages={searchPages} />
         <Outlet />
       </main>
     </div>
