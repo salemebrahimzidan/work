@@ -147,6 +147,7 @@ export default function Profits() {
             <label htmlFor="p-customer">العميل</label>
             <SelectField
               id="p-customer"
+              searchPlaceholder="ابحث باسم العميل..."
               value={customerId}
               onChange={setCustomerId}
               options={[
@@ -160,6 +161,7 @@ export default function Profits() {
             <label htmlFor="p-nationality">الجنسية</label>
             <SelectField
               id="p-nationality"
+              searchPlaceholder="ابحث عن جنسية..."
               value={nationality}
               onChange={setNationality}
               options={[
@@ -173,6 +175,7 @@ export default function Profits() {
             <label htmlFor="p-city">المدينة</label>
             <SelectField
               id="p-city"
+              searchPlaceholder="ابحث عن مدينة..."
               value={city}
               onChange={setCity}
               options={[

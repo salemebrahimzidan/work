@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   BadgeDollarSign,
   Ban,
@@ -9,9 +9,12 @@ import {
   Clock,
   GraduationCap,
   LayoutDashboard,
+  LogOut,
+  Mail,
   Menu,
   Plane,
   PlayCircle,
+  ShieldCheck,
   Users,
   Wallet,
   X,
@@ -21,6 +24,8 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthProvider'
 import { useCompany } from '../auth/CompanyProvider'
 import PageSearch, { type SearchPage } from './PageSearch'
+import Modal from './Modal'
+import AssistantPanel from './AssistantPanel'
 import {
   billerCategories,
   billerCategoryLabel,
@@ -73,6 +78,8 @@ export default function Layout() {
   const { pathname, search } = useLocation()
   const statusParam = new URLSearchParams(search).get('status')
   const [navOpen, setNavOpen] = useState(false)
+  const [logoutOpen, setLogoutOpen] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
 
   useEffect(() => {
     setNavOpen(false)
@@ -199,21 +206,128 @@ export default function Layout() {
           )}
         </nav>
 
-        <div className="user-box">
-          <span className="user-name">
-            <span className="user-name-text">{profile?.full_name || session?.user.email}</span>
-            {isAdmin && <span className="badge badge-admin">مشرف</span>}
-          </span>
-          <button type="button" className="btn btn-ghost" onClick={signOut}>
-            خروج
-          </button>
-        </div>
+        <UserMenu
+          name={profile?.full_name || ''}
+          email={session?.user.email || ''}
+          role={isAdmin ? 'مشرف' : 'مستخدم'}
+          onLogout={() => setLogoutOpen(true)}
+        />
       </aside>
+
+      <Modal title="تسجيل الخروج" compact hideHeader open={logoutOpen} onClose={() => setLogoutOpen(false)}>
+        <div className="confirm-dialog">
+          <p className="confirm-copy">هل تريد تسجيل الخروج؟</p>
+          <p className="confirm-detail">ستحتاج إلى تسجيل الدخول مرة أخرى للمتابعة.</p>
+          <div className="confirm-actions">
+            <button
+              type="button"
+              className="btn confirm-delete"
+              disabled={signingOut}
+              onClick={async () => {
+                setSigningOut(true)
+                try {
+                  await signOut()
+                } finally {
+                  setSigningOut(false)
+                  setLogoutOpen(false)
+                }
+              }}
+            >
+              {signingOut ? 'جارٍ الخروج…' : 'تسجيل الخروج'}
+            </button>
+            <button type="button" className="btn confirm-cancel" onClick={() => setLogoutOpen(false)} autoFocus>
+              إلغاء
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <main className="main">
         <PageSearch pages={searchPages} />
         <Outlet />
       </main>
+
+      <AssistantPanel pages={searchPages} />
+    </div>
+  )
+}
+
+/** Sidebar account box: avatar button (opens a card with name, email, role) and a logout button. */
+function UserMenu({
+  name,
+  email,
+  role,
+  onLogout,
+}: {
+  name: string
+  email: string
+  role: string
+  onLogout: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const boxRef = useRef<HTMLDivElement>(null)
+  const initial = (name || email || '؟').trim().charAt(0).toUpperCase()
+
+  useEffect(() => {
+    if (!open) return
+    function onPointer(event: MouseEvent) {
+      if (!boxRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <div className="user-box" ref={boxRef}>
+      <button
+        type="button"
+        className="user-avatar"
+        aria-label="عرض بيانات الحساب"
+        title="عرض بيانات الحساب"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={() => setOpen((current) => !current)}
+      >
+        {initial}
+      </button>
+      <button
+        type="button"
+        className="user-logout"
+        onClick={onLogout}
+        aria-label="تسجيل الخروج"
+        title="تسجيل الخروج"
+      >
+        <LogOut size={17} aria-hidden="true" />
+      </button>
+
+      {open && (
+        <div className="user-card" role="dialog" aria-label="بيانات الحساب">
+          <div className="user-card-band" aria-hidden="true" />
+          <span className="user-card-avatar" aria-hidden="true">
+            {initial}
+          </span>
+          {!email && <strong className="user-card-name">{name}</strong>}
+          <span className="user-card-role">
+            <ShieldCheck size={13} aria-hidden="true" />
+            {role}
+          </span>
+          {email && (
+            <div className="user-card-row">
+              <Mail size={15} aria-hidden="true" />
+              <span className="user-card-email" dir="ltr">
+                {email}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

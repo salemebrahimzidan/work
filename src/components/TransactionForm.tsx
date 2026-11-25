@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ListChecks } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { errorMessage, linkedText, money } from '../lib/format'
@@ -15,6 +15,7 @@ import {
   serviceCategoryLabel,
   type BillerCategory,
   type ServiceCategory,
+  type ServicePrice,
 } from '../lib/types'
 import Modal from './Modal'
 import SelectField, { ComboField } from './SelectField'
@@ -55,19 +56,21 @@ function amountText(value: string): string {
 
 interface Props {
   fixedCustomerId?: string
+  /** Start with this service already chosen (e.g. from the assistant); only the customer is left to pick. */
+  initialService?: ServicePrice
   onSaved: () => void
   onCancel: () => void
 }
 
-export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: Props) {
+export default function TransactionForm({ fixedCustomerId, initialService, onSaved, onCancel }: Props) {
   const { session } = useAuth()
   const { canViewFinance, canViewServiceQuoteCommission, loading: companyLoading } = useCompany()
   const customers = useCustomerOptions()
   const { services } = useServicePrices()
   const [commissions, setCommissions] = useState<Record<string, string | null>>({})
   const [customerId, setCustomerId] = useState(fixedCustomerId ?? '')
-  const [serviceCategory, setServiceCategory] = useState<ServiceCategory | ''>('')
-  const [billerCategory, setBillerCategory] = useState<BillerCategory | ''>('')
+  const [serviceCategory, setServiceCategory] = useState<ServiceCategory | ''>(initialService?.category ?? '')
+  const [billerCategory, setBillerCategory] = useState<BillerCategory | ''>(initialService?.biller_category ?? '')
   const [serviceName, setServiceName] = useState('')
   const [transactionValue, setTransactionValue] = useState('')
   const [commission, setCommission] = useState('')
@@ -99,15 +102,17 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
     }
   }, [canViewFinance, canViewServiceQuoteCommission, companyLoading])
 
-  const serviceReady = serviceCategory !== '' && (serviceCategory !== 'fawateer' || billerCategory !== '')
+  // Bill payments: the biller field shows as soon as سداد فواتير is chosen and lists every biller.
+  // Picking a biller (e.g. by typing its code "002") fills فئة المفوتر; choosing a category first narrows the list.
+  const serviceReady = serviceCategory !== ''
+  const matchesBiller = (item: { biller_category?: string | null }) =>
+    serviceCategory !== 'fawateer' || billerCategory === '' || item.biller_category === billerCategory
   const serviceNames = serviceReady
-    ? services
-        .filter(
-          (item) =>
-            item.category === serviceCategory &&
-            (serviceCategory !== 'fawateer' || item.biller_category === billerCategory),
-        )
-        .map((item) => item.name)
+    ? [
+        ...new Set(
+          services.filter((item) => item.category === serviceCategory && matchesBiller(item)).map((item) => item.name),
+        ),
+      ]
     : []
   const selectedService =
     services.find(
@@ -128,6 +133,16 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
     setTransactionValue(value)
     setCommission(fee)
   }, [canViewFinance, canViewServiceQuoteCommission, commissions, selectedService])
+
+  // Apply the preselected service once the catalog is loaded, through the same path as picking it by hand
+  // (fills price/commission, or flags a missing price).
+  const appliedInitial = useRef(false)
+  useEffect(() => {
+    if (!initialService || appliedInitial.current || services.length === 0) return
+    appliedInitial.current = true
+    selectService(initialService.name)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialService, services])
 
   function clearService() {
     setServiceName('')
@@ -153,11 +168,12 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
   function selectService(name: string) {
     const trimmed = name.trim()
     const service = services.find(
-      (item) =>
-        item.name === trimmed &&
-        item.category === serviceCategory &&
-        (serviceCategory !== 'fawateer' || item.biller_category === billerCategory),
+      (item) => item.name === trimmed && item.category === serviceCategory && matchesBiller(item),
     )
+    // Fill فئة المفوتر from the chosen biller when it wasn't picked yet.
+    if (serviceCategory === 'fawateer' && service?.biller_category) {
+      setBillerCategory(service.biller_category)
+    }
     const fromAnotherType = services.some((item) => item.name === trimmed && item.category !== serviceCategory)
     const fromAnotherBiller =
       serviceCategory === 'fawateer' &&
@@ -316,6 +332,9 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
               id="customer"
               value={customerId}
               onChange={setCustomerId}
+              autoOpen={Boolean(initialService)}
+              searchable
+              searchPlaceholder="ابحث بالاسم أو رقم الجوال..."
               options={[
                 { value: '', label: '— اختر العميل —' },
                 ...customers.map((customer) => ({
@@ -333,6 +352,8 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
             id="service-type"
             value={serviceCategory}
             onChange={selectCategory}
+            searchable
+            searchPlaceholder="ابحث عن نوع الخدمة..."
             options={[
               { value: '', label: '— اختر نوع الخدمة —' },
               ...serviceCategories.map((category) => ({
@@ -348,6 +369,7 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
             <label htmlFor="biller-category">فئة المفوتر *</label>
             <SelectField
               id="biller-category"
+              searchPlaceholder="ابحث عن فئة المفوتر..."
               value={billerCategory}
               onChange={selectBiller}
               options={[
@@ -365,7 +387,7 @@ export default function TransactionForm({ fixedCustomerId, onSaved, onCancel }: 
           <div className="field full">
             <label htmlFor="service">اسم المعاملة / الخدمة *</label>
             <ComboField
-              key={`${serviceCategory}:${billerCategory}`}
+              key={serviceCategory}
               id="service"
               required
               onlyOptions
