@@ -339,7 +339,9 @@ export default function TransactionForm({ fixedCustomerId, initialService, onSav
                 { value: '', label: '— اختر العميل —' },
                 ...customers.map((customer) => ({
                   value: customer.id,
-                  label: customer.mobile ? `${customer.full_name} — ${customer.mobile}` : customer.full_name,
+                  // Show the name only; the mobile stays searchable.
+                  label: customer.full_name,
+                  keywords: customer.mobile ?? undefined,
                 })),
               ]}
             />

@@ -6,6 +6,8 @@ import { normalizeSearch } from '../lib/search'
 interface Option {
   value: string
   label: string
+  /** Extra text the search also matches but that isn't shown (e.g. a customer's mobile). */
+  keywords?: string
 }
 
 interface Props {
@@ -316,8 +318,9 @@ function SearchableSelect({
   const visible = term
     ? options.filter((option) => {
         if (!option.value) return false
-        const label = normalizeSearch(option.label)
-        return label.includes(term) || (digits.length >= 3 && option.label.replace(/\D/g, '').includes(digits))
+        // Hidden keywords (e.g. a customer's mobile) are searchable without being shown.
+        const text = option.keywords ? `${option.label} ${option.keywords}` : option.label
+        return normalizeSearch(text).includes(term) || (digits.length >= 3 && text.replace(/\D/g, '').includes(digits))
       })
     : options
 

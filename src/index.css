@@ -6539,3 +6539,34 @@ button.user-avatar:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--ring);
 }
+
+/* ======================================================================
+   Scroll lock: while any popup is open the page behind it stays still.
+   ====================================================================== */
+html {
+  /* Reserve the scrollbar's space so locking doesn't shift the layout sideways. */
+  scrollbar-gutter: stable;
+}
+
+html:has(.modal-backdrop, .drawer-backdrop, .palette-backdrop) {
+  overflow: hidden;
+}
+
+/* On phones the assistant fills the screen, so it locks the page too. */
+@media (max-width: 800px) {
+  html:has(.assistant-panel:not([hidden])) {
+    overflow: hidden;
+  }
+}
+
+/* Scrolling inside a popup never carries over to the page when it hits the end. */
+.modal-backdrop,
+.modal-body,
+.tx-scroll,
+.drawer-body,
+.palette-list,
+.assistant-messages,
+.select-menu,
+.select-search-list {
+  overscroll-behavior: contain;
+}
