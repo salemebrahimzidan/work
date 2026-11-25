@@ -6570,3 +6570,96 @@ html:has(.modal-backdrop, .drawer-backdrop, .palette-backdrop) {
 .select-search-list {
   overscroll-behavior: contain;
 }
+
+/* Number cells (mobile, iqama, bill no.) keep left-to-right digits but start where their
+   right-aligned column title starts. Columns meant to align left use .num-left. */
+tbody td[dir='ltr']:not(.num-left) {
+  text-align: right;
+}
+
+/* ------------------------------------------------ click-to-copy values */
+.copy-text {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: -3px -6px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: copy;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.copy-text svg {
+  flex: none;
+  opacity: 0;
+  color: var(--muted);
+  transition: opacity 0.15s ease;
+}
+
+.copy-text:hover,
+.copy-text:focus-visible {
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+}
+
+.copy-text:hover svg,
+.copy-text:focus-visible svg,
+.copy-text.is-copied svg {
+  opacity: 1;
+  color: currentColor;
+}
+
+.copy-text:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+.copy-text.is-copied {
+  background: var(--success-soft);
+  color: var(--success-ink);
+}
+
+.copy-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  z-index: 5;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #18202b;
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, 3px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.copy-text:hover .copy-tip,
+.copy-text:focus-visible .copy-tip,
+.copy-text.is-copied .copy-tip {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.copy-text.is-copied .copy-tip {
+  background: #157347;
+}
+
+:root[data-theme='dark'] .copy-tip {
+  background: #e8ecef;
+  color: #18202b;
+}
+
+:root[data-theme='dark'] .copy-text.is-copied .copy-tip {
+  background: #2f9e62;
+  color: #fff;
+}
