@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
-import { Navigate, useParams } from 'react-router-dom'
+import { Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { useCompany } from '../auth/CompanyProvider'
 import { loadServiceCommissionMap, loadServiceQuoteCommissionMap } from '../lib/finance'
 import { supabase } from '../lib/supabase'
@@ -176,6 +176,9 @@ export default function Services({ category }: { category: ServiceCategory }) {
   const [editing, setEditing] = useState<ServicePrice | null>(null)
   const [billerReady, setBillerReady] = useState(true)
   const { biller: billerParam } = useParams()
+  // ?service=<id> (e.g. from the assistant) opens the page holding that service and highlights it.
+  const [searchParams] = useSearchParams()
+  const focusId = searchParams.get('service')
   const selectedBiller = category === 'fawateer' && isBillerCategory(billerParam) ? billerParam : null
 
   const load = useCallback(async () => {
@@ -494,6 +497,7 @@ export default function Services({ category }: { category: ServiceCategory }) {
           showCommission={category !== 'fawateer' && canViewServiceQuoteCommission}
           onEdit={openEdit}
           onDelete={setDeleting}
+          focusId={focusId}
         />
       </div>
 
@@ -691,15 +695,17 @@ function PriceRow({
   showCommission,
   onEdit,
   onDelete,
+  focused = false,
 }: {
   row: ServicePrice
   showPrices: boolean
   showCommission: boolean
   onEdit?: (row: ServicePrice) => void
   onDelete?: (row: ServicePrice) => void
+  focused?: boolean
 }) {
   return (
-    <tr>
+    <tr data-service-id={row.id} className={focused ? 'price-row-focus' : undefined}>
       <td className="price-name">{row.name}</td>
       {showPrices &&
         (row.manual ? (
@@ -754,6 +760,7 @@ function PriceSection({
   showCommission,
   onEdit,
   onDelete,
+  focusId,
 }: {
   rows: ServicePrice[]
   loading: boolean
@@ -761,8 +768,11 @@ function PriceSection({
   showCommission: boolean
   onEdit: (row: ServicePrice) => void
   onDelete: (row: ServicePrice) => void
+  focusId?: string | null
 }) {
   const [page, setPage] = useState(0)
+  const userPaged = useRef(false)
+  const scrolledTo = useRef<string | null>(null)
   const [breaks, setBreaks] = useState<number[]>([0])
   const sheetRef = useRef<HTMLDivElement>(null)
   const measureRef = useRef<HTMLTableSectionElement>(null)
@@ -772,6 +782,35 @@ function PriceSection({
   const start = breaks[currentPage] ?? 0
   const end = breaks[currentPage + 1] ?? rows.length
   const visibleRows = rows.slice(start, end)
+
+  // Keep the requested service's page open while the pages are being measured (they can change a few
+  // times after load). Stop steering once the user turns a page themselves. Scroll to it once it's shown.
+  useEffect(() => {
+    if (!focusId || loading || userPaged.current) return
+    const index = rows.findIndex((row) => row.id === focusId)
+    if (index < 0) return
+    let target = 0
+    breaks.forEach((startIndex, pageIndex) => {
+      if (startIndex <= index) target = pageIndex
+    })
+    if (target !== currentPage) {
+      setPage(target)
+      return
+    }
+    if (scrolledTo.current === focusId) return
+    const frame = requestAnimationFrame(() => {
+      const row = document.querySelector(`.price-sheet [data-service-id="${CSS.escape(focusId)}"]`)
+      if (!row) return
+      scrolledTo.current = focusId
+      row.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [focusId, loading, rows, breaks, currentPage])
+
+  function turnPage(next: number) {
+    userPaged.current = true
+    setPage(next)
+  }
 
   useLayoutEffect(() => {
     if (loading || rows.length === 0) {
@@ -880,6 +919,7 @@ function PriceSection({
                   showCommission={showCommission}
                   onEdit={onEdit}
                   onDelete={onDelete}
+                  focused={row.id === focusId}
                 />
               ))}
             </tbody>
@@ -890,7 +930,7 @@ function PriceSection({
             className="price-pager"
             page={currentPage}
             pageCount={pageCount}
-            onPage={setPage}
+            onPage={turnPage}
           />
         )}
         <table className="price-measure" aria-hidden="true" inert>

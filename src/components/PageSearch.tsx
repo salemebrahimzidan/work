@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { CornerDownLeft, FileText, Search, type LucideIcon } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import ThemeToggle from './ThemeToggle'
+import { normalizeSearch } from '../lib/search'
 
 export interface SearchPage {
   to: string
@@ -10,16 +11,7 @@ export interface SearchPage {
   icon?: LucideIcon
 }
 
-/** Loosen Arabic spelling so "اعمال" finds "أعمال", "فاتوره" finds "فاتورة", etc. */
-function normalize(text: string) {
-  return text
-    .toLowerCase()
-    .replace(/[ً-ْـ]/g, '')
-    .replace(/[أإآ]/g, 'ا')
-    .replace(/ة/g, 'ه')
-    .replace(/ى/g, 'ي')
-    .trim()
-}
+const normalize = normalizeSearch
 
 export default function PageSearch({ pages }: { pages: SearchPage[] }) {
   const navigate = useNavigate()
